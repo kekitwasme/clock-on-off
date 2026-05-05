@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1e40af">
+    <title>Clock On/Off</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Loading State -->
+    <div id="app-loading" class="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center">
+        <div class="loading-spinner mb-4" style="width: 40px; height: 40px; border: 4px solid #e5e7eb; border-top-color: #1e40af;"></div>
+        <p class="text-gray-600 text-sm">Loading Clock On/Off...</p>
+    </div>
+
+    <!-- PIN Entry Screen -->
+    <section id="pin-screen" class="min-h-screen flex flex-col items-center justify-center p-4">
+        <div class="w-full max-w-sm bg-white rounded-lg shadow-lg p-6">
+            <h1 class="text-2xl font-bold text-center text-gray-800 mb-2">Clock On/Off</h1>
+            <p class="text-center text-gray-600 mb-6">Enter your PIN to continue</p>
+            
+            <div class="pin-display mb-6" id="pin-display">
+                <div class="pin-dot"></div>
+                <div class="pin-dot"></div>
+                <div class="pin-dot"></div>
+                <div class="pin-dot"></div>
+                <div class="pin-dot"></div>
+                <div class="pin-dot"></div>
+            </div>
+            
+            <div class="pin-pad grid grid-cols-3 gap-3 mb-4">
+                <button class="pin-btn" data-pin="1">1</button>
+                <button class="pin-btn" data-pin="2">2</button>
+                <button class="pin-btn" data-pin="3">3</button>
+                <button class="pin-btn" data-pin="4">4</button>
+                <button class="pin-btn" data-pin="5">5</button>
+                <button class="pin-btn" data-pin="6">6</button>
+                <button class="pin-btn" data-pin="7">7</button>
+                <button class="pin-btn" data-pin="8">8</button>
+                <button class="pin-btn" data-pin="9">9</button>
+                <button class="pin-btn-clear" id="pin-clear">Clear</button>
+                <button class="pin-btn" data-pin="0">0</button>
+                <button class="pin-btn-enter" id="pin-enter">Enter</button>
+            </div>
+            
+            <div id="pin-error" class="text-red-600 text-center text-sm mt-2 hidden"></div>
+        </div>
+    </section>
+
+    <!-- Main App Screen -->
+    <section id="app-screen" class="min-h-screen hidden">
+        <!-- Header -->
+        <header class="bg-blue-800 text-white p-4 shadow-md">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-xl font-bold">Clock On/Off</h1>
+                    <p id="staff-name" class="text-sm text-blue-200"></p>
+                </div>
+                <button id="logout-btn" class="text-sm bg-blue-700 hover:bg-blue-600 px-3 py-2 rounded">Logout</button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="p-4 pb-24">
+            <!-- Status Card -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-4">
+                <div id="status-indicator" class="status-indicator mb-4">
+                    <span class="status-dot"></span>
+                    <span class="status-text text-lg font-semibold"></span>
+                </div>
+                <div id="shift-duration" class="text-3xl font-bold text-gray-800 text-center hidden">
+                    0h 0m
+                </div>
+            </div>
+
+            <!-- Clock Action Card -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-4">
+                <h2 class="text-lg font-semibold text-gray-800 mb-4">Record Time</h2>
+                
+                <button id="clock-action-btn" class="w-full py-4 text-xl font-bold rounded-lg mb-4 transition-colors">
+                    Clock On
+                </button>
+                
+                <div id="time-picker-container" class="hidden">
+                    <label class="block text-sm text-gray-600 mb-2">Adjust time (±10 min from now):</label>
+                    <input type="time" id="time-picker" class="w-full text-2xl p-3 border border-gray-300 rounded-lg text-center">
+                    <p id="time-picker-hint" class="text-xs text-gray-500 mt-1"></p>
+                    <div class="flex gap-3 mt-4">
+                        <button id="time-cancel" class="flex-1 py-3 bg-gray-200 text-gray-800 rounded-lg font-semibold">Cancel</button>
+                        <button id="time-confirm" class="flex-1 py-3 bg-blue-600 text-white rounded-lg font-semibold">Confirm</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- My Shifts Button -->
+            <button id="my-shifts-btn" class="w-full bg-white border-2 border-blue-600 text-blue-600 py-3 rounded-lg font-semibold mb-4 hover:bg-blue-50">
+                📋 My Shifts
+            </button>
+
+            <!-- Admin Panel Button (conditionally shown) -->
+            <button id="admin-panel-btn" class="w-full bg-gray-800 text-white py-3 rounded-lg font-semibold mb-4 hidden hover:bg-gray-700">
+                ⚙️ Admin Panel
+            </button>
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-2 flex justify-around safe-area-bottom">
+            <button class="nav-btn active" data-view="home">
+                <span class="nav-icon text-2xl">🏠</span>
+                <span class="nav-label text-xs">Home</span>
+            </button>
+            <button class="nav-btn" data-view="shifts">
+                <span class="nav-icon text-2xl">📋</span>
+                <span class="nav-label text-xs">My Shifts</span>
+            </button>
+        </nav>
+    </section>
+
+    <!-- My Shifts View -->
+    <section id="shifts-screen" class="min-h-screen hidden">
+        <header class="bg-blue-800 text-white p-4 shadow-md">
+            <div class="flex justify-between items-center">
+                <h1 class="text-xl font-bold">My Shifts</h1>
+                <button id="shifts-back-btn" class="text-sm bg-blue-700 hover:bg-blue-600 px-3 py-2 rounded">Back</button>
+            </div>
+        </header>
+        <main class="p-4">
+            <div id="shifts-list" class="space-y-3">
+                <!-- Shifts will be rendered here -->
+            </div>
+            <div id="shifts-loading" class="text-center py-8 hidden">
+                <div class="loading-spinner"></div>
+                <p class="text-gray-600 mt-2">Loading shifts...</p>
+            </div>
+            <div id="shifts-empty" class="text-center py-8 hidden">
+                <p class="text-gray-600">No shifts recorded yet</p>
+            </div>
+        </main>
+    </section>
+
+    <!-- Admin Panel -->
+    <section id="admin-screen" class="min-h-screen hidden">
+        <header class="bg-gray-800 text-white p-4 shadow-md">
+            <div class="flex justify-between items-center">
+                <h1 class="text-xl font-bold">Admin Panel</h1>
+                <button id="admin-back-btn" class="text-sm bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded">Back</button>
+            </div>
+        </header>
+        <main class="p-4">
+            <!-- Admin Tabs -->
+            <div class="flex gap-2 mb-4 overflow-x-auto">
+                <button class="admin-tab active flex-1 py-2 px-3 bg-gray-800 text-white rounded text-sm whitespace-nowrap" data-tab="staff">Staff</button>
+                <button class="admin-tab flex-1 py-2 px-3 bg-gray-200 text-gray-800 rounded text-sm whitespace-nowrap" data-tab="timesheets">Timesheets</button>
+                <button class="admin-tab flex-1 py-2 px-3 bg-gray-200 text-gray-800 rounded text-sm whitespace-nowrap" data-tab="audit">Audit Log</button>
+            </div>
+
+            <!-- Staff Management Tab -->
+            <div id="admin-staff-tab" class="admin-tab-content">
+                <button id="add-staff-btn" class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold mb-4 hover:bg-green-700">
+                    + Add Staff
+                </button>
+                <div id="staff-list" class="space-y-3">
+                    <!-- Staff list rendered here -->
+                </div>
+            </div>
+
+            <!-- Timesheets Tab -->
+            <div id="admin-timesheets-tab" class="admin-tab-content hidden">
+                <div class="flex gap-2 mb-4">
+                    <select id="timesheet-staff-filter" class="flex-1 p-2 border border-gray-300 rounded">
+                        <option value="">All Staff</option>
+                    </select>
+                    <button id="export-csv-btn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 whitespace-nowrap">
+                        📥 Export CSV
+                    </button>
+                </div>
+                <div id="timesheets-list" class="space-y-3">
+                    <!-- Timesheets rendered here -->
+                </div>
+            </div>
+
+            <!-- Audit Log Tab -->
+            <div id="admin-audit-tab" class="admin-tab-content hidden">
+                <div id="audit-list" class="space-y-3">
+                    <!-- Audit log entries rendered here -->
+                </div>
+            </div>
+        </main>
+    </section>
+
+    <!-- Modals -->
+    <!-- Add/Edit Staff Modal -->
+    <div id="staff-modal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <h2 id="staff-modal-title" class="text-xl font-bold mb-4">Add Staff</h2>
+            <form id="staff-form">
+                <input type="hidden" id="staff-id">
+                <div class="mb-4">
+                    <label class="block text-sm text-gray-600 mb-1">Name</label>
+                    <input type="text" id="staff-name-input" class="w-full p-3 border border-gray-300 rounded-lg" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm text-gray-600 mb-1">PIN (4-6 digits)</label>
+                    <input type="tel" id="staff-pin-input" class="w-full p-3 border border-gray-300 rounded-lg" pattern="[0-9]{4,6}" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm text-gray-600 mb-1">Role</label>
+                    <select id="staff-role-input" class="w-full p-3 border border-gray-300 rounded-lg">
+                        <option value="staff">Staff</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="flex items-center">
+                        <input type="checkbox" id="staff-active-input" checked>
+                        <span class="ml-2 text-sm text-gray-600">Active</span>
+                    </label>
+                </div>
+                <div class="flex gap-3">
+                    <button type="button" id="staff-modal-cancel" class="flex-1 py-3 bg-gray-200 text-gray-800 rounded-lg font-semibold">Cancel</button>
+                    <button type="submit" class="flex-1 py-3 bg-blue-600 text-white rounded-lg font-semibold">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Shift Modal (Admin) -->
+    <div id="shift-modal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <h2 class="text-xl font-bold mb-4">Edit Shift Time</h2>
+            <form id="shift-form">
+                <input type="hidden" id="edit-shift-id">
+                <input type="hidden" id="edit-shift-staff-id">
+                <div class="mb-4">
+                    <label class="block text-sm text-gray-600 mb-1">Clock In Time</label>
+                    <input type="datetime-local" id="edit-clock-in" class="w-full p-3 border border-gray-300 rounded-lg">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm text-gray-600 mb-1">Clock Out Time</label>
+                    <input type="datetime-local" id="edit-clock-out" class="w-full p-3 border border-gray-300 rounded-lg">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm text-gray-600 mb-1">Notes</label>
+                    <textarea id="edit-shift-notes" class="w-full p-3 border border-gray-300 rounded-lg" rows="2"></textarea>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm text-gray-600 mb-1">Reason for adjustment*</label>
+                    <input type="text" id="edit-shift-reason" class="w-full p-3 border border-gray-300 rounded-lg" placeholder="Required: why are you editing this shift?">
+                </div>
+                <p class="text-xs text-gray-500 mb-4">Note: Adjustments are logged in the audit trail.</p>
+                <div class="flex gap-3">
+                    <button type="button" id="shift-modal-cancel" class="flex-1 py-3 bg-gray-200 text-gray-800 rounded-lg font-semibold">Cancel</button>
+                    <button type="submit" class="flex-1 py-3 bg-blue-600 text-white rounded-lg font-semibold">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-4 left-4 right-4 z-50 space-y-2"></div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="db.js"></script>
+    <script src="auth.js"></script>
+    <script src="app.js"></script>
+    <script src="admin.js"></script>
+    <script>
+    (function() {
+      'use strict';
+
+      // Hide loading screen
+      function hideLoading() {
+        var loading = document.getElementById('app-loading');
+        if (loading) {
+          loading.style.opacity = '0';
+          loading.style.transition = 'opacity 0.3s ease';
+          setTimeout(function() {
+            if (loading.parentNode) loading.parentNode.removeChild(loading);
+          }, 350);
+        }
+      }
+
+      function waitForDeps() {
+        var ready = window.ClockDB && window.ClockAuth && window.ClockApp && window.ClockAdmin;
+        if (ready) {
+          try {
+            window.ClockDB.init();
+            window.ClockAuth.init();
+            window.ClockApp.init();
+            // Initialize admin module globally
+            if (typeof window.ClockAdmin.initAdmin === 'function') {
+              window.ClockAdmin.initAdmin();
+            }
+            hideLoading();
+          } catch (e) {
+            console.error('App initialization failed:', e);
+            hideLoading();
+            // Show fatal error on PIN screen
+            var errEl = document.getElementById('pin-error');
+            if (errEl) {
+              errEl.textContent = 'App failed to start. Please refresh the page.';
+              errEl.className = 'text-red-600 text-center text-sm mt-2';
+              errEl.classList.remove('hidden');
+            }
+          }
+        } else {
+          setTimeout(waitForDeps, 50);
+        }
+      }
+
+      // Wait for DOM and scripts
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', waitForDeps);
+      } else {
+        waitForDeps();
+      }
+    })();
+    </script>
+</body>
+</html>

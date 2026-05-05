@@ -1,0 +1,786 @@
+/* Custom styles for Clock On/Off App */
+/* Tailwind CSS handles utilities via CDN - this file is for component-specific styles */
+
+/* ===== Base & Layout ===== */
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+    overscroll-behavior-y: none; /* Prevent bounce/pull-to-refresh on mobile */
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Safe area for devices with notches/home indicators */
+.safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* ===== PIN Entry Screen ===== */
+.pin-display {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+}
+
+.pin-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2.5px solid #3b82f6;
+    background: transparent;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+}
+
+.pin-dot.filled {
+    background: #3b82f6;
+    border-color: #3b82f6;
+}
+
+.pin-dot.error {
+    border-color: #ef4444;
+    background: #ef4444;
+    animation: shake 0.35s ease;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-7px); }
+    40% { transform: translateX(7px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+}
+
+.pin-pad {
+    max-width: 320px;
+    margin: 0 auto;
+}
+
+.pin-btn,
+.pin-btn-clear,
+.pin-btn-enter {
+    min-height: 64px;
+    font-size: 26px;
+    font-weight: 600;
+    border-radius: 14px;
+    transition: all 0.12s ease;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pin-btn {
+    background: #f3f4f6;
+    color: #1f2937;
+}
+
+.pin-btn:active {
+    background: #e5e7eb;
+    transform: scale(0.96);
+}
+
+.pin-btn-clear,
+.pin-btn-enter {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.pin-btn-clear {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.pin-btn-clear:active {
+    background: #fecaca;
+    transform: scale(0.96);
+}
+
+.pin-btn-enter {
+    background: #3b82f6;
+    color: white;
+}
+
+.pin-btn-enter:active {
+    background: #2563eb;
+    transform: scale(0.96);
+}
+
+.pin-btn-enter:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ===== Status Indicator ===== */
+.status-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 18px 16px;
+    border-radius: 14px;
+    transition: all 0.3s ease;
+}
+
+.status-indicator.clocked-on {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.status-indicator.clocked-off {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.status-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.status-indicator.clocked-on .status-dot {
+    background: #22c55e;
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.25);
+    animation: pulseGreen 2s infinite;
+}
+
+.status-indicator.clocked-off .status-dot {
+    background: #ef4444;
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.25);
+}
+
+@keyframes pulseGreen {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.7;
+        transform: scale(1.15);
+    }
+}
+
+.status-text {
+    font-size: 1.125rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+/* ===== Shift Duration Display ===== */
+#shift-duration {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    font-size: 2.25rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+/* ===== Clock Action Button ===== */
+#clock-action-btn {
+    transition: all 0.2s ease;
+    min-height: 64px;
+    border: none;
+    cursor: pointer;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    letter-spacing: 0.02em;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+#clock-action-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+#clock-action-btn.clocked-off {
+    background: #22c55e;
+    color: white;
+}
+
+#clock-action-btn.clocked-off:active:not(:disabled) {
+    background: #16a34a;
+    transform: scale(0.98);
+}
+
+#clock-action-btn.clocked-on {
+    background: #ef4444;
+    color: white;
+}
+
+#clock-action-btn.clocked-on:active:not(:disabled) {
+    background: #dc2626;
+    transform: scale(0.98);
+}
+
+/* ===== Time Picker ===== */
+#time-picker-container {
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+#time-picker {
+    font-size: 32px;
+    font-weight: 700;
+    color: #1f2937;
+    text-align: center;
+    padding: 12px;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    width: 100%;
+    background: white;
+    cursor: pointer;
+}
+
+#time-picker:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+#time-picker:disabled {
+    background: #f3f4f6;
+    color: #9ca3af;
+    cursor: not-allowed;
+}
+
+#time-picker-hint {
+    font-size: 13px;
+}
+
+/* Time picker action buttons */
+#time-cancel,
+#time-confirm {
+    min-height: 52px;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.15s ease;
+}
+
+#time-cancel:active {
+    background: #d1d5db;
+    transform: scale(0.98);
+}
+
+#time-confirm:active {
+    background: #1d4ed8;
+    transform: scale(0.98);
+}
+
+/* ===== Navigation ===== */
+nav {
+    z-index: 40;
+}
+
+.nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 20px;
+    border-radius: 10px;
+    transition: all 0.2s ease;
+    min-width: 72px;
+    min-height: 56px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.nav-btn.active {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.nav-btn:active {
+    background: #dbeafe;
+}
+
+.nav-icon {
+    font-size: 24px;
+    line-height: 1;
+    margin-bottom: 2px;
+}
+
+.nav-label {
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1;
+}
+
+/* ===== Shift Cards ===== */
+.shift-card {
+    background: white;
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    transition: all 0.2s ease;
+}
+
+.shift-card:active {
+    transform: scale(0.98);
+}
+
+.shift-card.active {
+    border-left: 5px solid #22c55e;
+}
+
+.shift-card.completed {
+    border-left: 5px solid #3b82f6;
+}
+
+.shift-time {
+    font-size: 15px;
+    color: #6b7280;
+}
+
+.shift-duration {
+    font-weight: 700;
+    color: #1f2937;
+    font-variant-numeric: tabular-nums;
+    font-size: 15px;
+}
+
+.shift-adjusted-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 6px;
+    background: #fef3c7;
+    color: #92400e;
+    margin-left: 6px;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+/* ===== Staff Cards (Admin) ===== */
+.staff-card {
+    background: white;
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.staff-card.inactive {
+    opacity: 0.6;
+    background: #f9fafb;
+}
+
+.staff-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.staff-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.staff-actions button {
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    font-size: 18px;
+    border: none;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: all 0.15s ease;
+}
+
+/* ===== Timesheet Rows (Admin) ===== */
+.timesheet-row {
+    background: white;
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.timesheet-row-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 8px;
+}
+
+.timesheet-row-times {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    color: #6b7280;
+}
+
+/* ===== Audit Log Entries ===== */
+.audit-entry {
+    background: white;
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    font-size: 13px;
+}
+
+.audit-entry-action {
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.audit-entry-time {
+    font-size: 12px;
+    color: #9ca3af;
+    margin-top: 4px;
+}
+
+/* ===== Modals ===== */
+.modal {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    animation: fadeIn 0.2s ease;
+}
+
+.modal.hidden {
+    display: none;
+}
+
+.modal-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+}
+
+.modal-content {
+    position: relative;
+    background: white;
+    border-radius: 18px;
+    padding: 24px;
+    width: 100%;
+    max-width: 420px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
+    z-index: 1;
+}
+
+.modal-content h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+/* ===== Toast Notifications ===== */
+#toast-container {
+    pointer-events: none;
+    z-index: 60;
+}
+
+.toast {
+    background: #1f2937;
+    color: white;
+    padding: 14px 20px;
+    border-radius: 14px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    animation: slideIn 0.3s ease;
+    pointer-events: auto;
+    font-size: 15px;
+    font-weight: 500;
+    max-width: 100%;
+    word-wrap: break-word;
+    line-height: 1.4;
+}
+
+.toast.success {
+    background: #16a34a;
+}
+
+.toast.error {
+    background: #dc2626;
+}
+
+.toast.info {
+    background: #2563eb;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-120%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.toast.hiding {
+    animation: slideOut 0.3s ease forwards;
+}
+
+@keyframes slideOut {
+    from {
+        transform: translateY(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateY(-120%);
+        opacity: 0;
+    }
+}
+
+/* ===== Loading Spinner ===== */
+.loading-spinner {
+    width: 44px;
+    height: 44px;
+    border: 4px solid #e5e7eb;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+    margin: 0 auto;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ===== Admin Tabs ===== */
+.admin-tab {
+    transition: all 0.2s ease;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    border: none;
+    cursor: pointer;
+    min-height: 44px;
+}
+
+.admin-tab.active {
+    background: #1f2937;
+    color: white;
+}
+
+.admin-tab:active {
+    transform: scale(0.97);
+}
+
+/* ===== Buttons ===== */
+button {
+    min-height: 44px; /* iOS touch target guideline */
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.btn-edit {
+    background: #f3f4f6;
+    color: #1f2937;
+    border: none;
+    border-radius: 10px;
+    min-height: 44px;
+    min-width: 44px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-edit:active {
+    background: #e5e7eb;
+}
+
+.btn-delete {
+    background: #fee2e2;
+    color: #dc2626;
+    border: none;
+    border-radius: 10px;
+    min-height: 44px;
+    min-width: 44px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-delete:active {
+    background: #fecaca;
+}
+
+/* ===== Form Inputs ===== */
+input[type="text"],
+input[type="tel"],
+input[type="datetime-local"],
+input[type="time"],
+select,
+textarea {
+    font-size: 16px; /* Prevents zoom on iOS */
+    min-height: 48px;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 10px 14px;
+    width: 100%;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+    background: #f3f4f6;
+    color: #9ca3af;
+    cursor: not-allowed;
+}
+
+/* ===== My Shifts Button ===== */
+#my-shifts-btn {
+    min-height: 52px;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-weight: 600;
+}
+
+#my-shifts-btn:active {
+    transform: scale(0.98);
+    background: #dbeafe;
+}
+
+/* Admin panel button */
+#admin-panel-btn {
+    min-height: 52px;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-weight: 600;
+}
+
+#admin-panel-btn:active {
+    transform: scale(0.98);
+}
+
+/* ===== Utility Classes ===== */
+.text-overflow-ellipsis {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ===== Responsive Adjustments ===== */
+@media (max-width: 380px) {
+    .pin-dot {
+        width: 14px;
+        height: 14px;
+        border-width: 2px;
+    }
+
+    .pin-btn,
+    .pin-btn-clear,
+    .pin-btn-enter {
+        min-height: 56px;
+        font-size: 22px;
+        border-radius: 12px;
+    }
+
+    .pin-btn-clear,
+    .pin-btn-enter {
+        font-size: 16px;
+    }
+
+    #time-picker {
+        font-size: 28px;
+    }
+
+    #shift-duration {
+        font-size: 1.875rem;
+    }
+
+    .status-indicator {
+        padding: 14px 12px;
+    }
+
+    .status-text {
+        font-size: 1rem;
+    }
+}
+
+@media (min-width: 640px) {
+    .modal-content {
+        max-width: 480px;
+    }
+
+    #toast-container {
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+        max-width: 420px;
+    }
+}
+
+/* ===== Print Styles (for CSV alternative) ===== */
+@media print {
+    nav,
+    button,
+    .modal {
+        display: none !important;
+    }
+
+    body {
+        background: white;
+    }
+}
+
+/* ===== Prevent text selection on interactive elements ===== */
+.pin-btn,
+.pin-btn-clear,
+.pin-btn-enter,
+#clock-action-btn,
+.nav-btn,
+#time-cancel,
+#time-confirm,
+#my-shifts-btn,
+#admin-panel-btn,
+.admin-tab {
+    -webkit-user-select: none;
+    user-select: none;
+}

@@ -1,0 +1,18 @@
+/**
+ * config.js - Supabase Credentials Configuration
+ *
+ * INSTRUCTIONS:
+ * 1. Copy this file to config.js
+ * 2. Replace the placeholder values with your actual Supabase credentials
+ * 3. Ensure config.js is loaded BEFORE db.js in index.html:
+ *
+ *    <script src="config.js"></script>
+ *    <script src="db.js"></script>
+ *
+ * 4. config.js is listed in .gitignore — do NOT commit your real credentials
+ */
+
+window.SUPABASE_CONFIG = {
+  url: 'https://your-project-id.supabase.co',
+  anonKey: 'your-anon-public-key-here'
+};
