@@ -22,7 +22,7 @@ CREATE EXTENSION IF NOT EXISTS "btree_gist";
 
 CREATE TABLE staff (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL CHECK (char_length(trim(name)) > 0),
+    name TEXT NOT NULL CHECK (char_length(trim(name)) > 0) UNIQUE,
     pin_hash TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'staff' CHECK (role IN ('staff', 'admin')),
     active BOOLEAN NOT NULL DEFAULT true,

@@ -297,7 +297,12 @@
   /**
    * Submit the staff form (create or update).
    */
+  var isSubmittingStaff = false;
+
   async function submitStaffForm() {
+    if (isSubmittingStaff) return;
+    isSubmittingStaff = true;
+
     var staffId = document.getElementById('staff-id').value;
     var name = document.getElementById('staff-name-input').value.trim();
     var pin = document.getElementById('staff-pin-input').value.trim();
@@ -305,6 +310,7 @@
     var active = document.getElementById('staff-active-input').checked;
 
     if (!name) {
+      isSubmittingStaff = false;
       if (window.ClockApp) window.ClockApp.showToast('Name is required.', 'error');
       return;
     }
@@ -337,6 +343,8 @@
       if (window.ClockApp) {
         window.ClockApp.showToast(error.message || 'Failed to save staff.', 'error');
       }
+    } finally {
+      isSubmittingStaff = false;
     }
   }
 

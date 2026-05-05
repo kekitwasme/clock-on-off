@@ -337,13 +337,13 @@ BEGIN
             USING ERRCODE = '28000';
     END IF;
 
-    -- Server time window: ±10 minutes from NOW
+    -- Server time window: up to 10 minutes in the past only (no future)
     v_now := now();
     v_window_start := v_now - INTERVAL '10 minutes';
-    v_window_end := v_now + INTERVAL '10 minutes';
+    v_window_end := v_now;
 
     IF p_clock_in < v_window_start OR p_clock_in > v_window_end THEN
-        RAISE EXCEPTION 'Clock-in time must be within ±10 minutes of current server time. Submitted: %, Allowed: % to %',
+        RAISE EXCEPTION 'Clock-in time must be within 10 minutes in the past of current server time. Submitted: %, Allowed: % to %',
             p_clock_in, v_window_start, v_window_end
             USING ERRCODE = '22023';
     END IF;
@@ -395,10 +395,10 @@ BEGIN
 
     v_now := now();
     v_window_start := v_now - INTERVAL '10 minutes';
-    v_window_end := v_now + INTERVAL '10 minutes';
+    v_window_end := v_now;
 
     IF p_clock_out < v_window_start OR p_clock_out > v_window_end THEN
-        RAISE EXCEPTION 'Clock-out time must be within ±10 minutes of current server time. Submitted: %, Allowed: % to %',
+        RAISE EXCEPTION 'Clock-out time must be within 10 minutes in the past of current server time. Submitted: %, Allowed: % to %',
             p_clock_out, v_window_start, v_window_end
             USING ERRCODE = '22023';
     END IF;

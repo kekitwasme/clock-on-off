@@ -110,17 +110,23 @@
 
       serverTime = await window.ClockDB.getServerTime();
       timeWindowMin = new Date(serverTime.getTime() - 10 * 60 * 1000);
-      timeWindowMax = new Date(serverTime.getTime() + 10 * 60 * 1000);
+      timeWindowMax = new Date(serverTime.getTime());
 
-      // Set picker to server time
-      var hours = String(serverTime.getHours()).padStart(2, '0');
-      var minutes = String(serverTime.getMinutes()).padStart(2, '0');
+      // Round min down to nearest 5 minutes
+      timeWindowMin.setMinutes(Math.floor(timeWindowMin.getMinutes() / 5) * 5, 0, 0);
+      // Round default time down to nearest 5 minutes
+      var defaultTime = new Date(serverTime.getTime());
+      defaultTime.setMinutes(Math.floor(defaultTime.getMinutes() / 5) * 5, 0, 0);
+
+      // Set picker to rounded default
+      var hours = String(defaultTime.getHours()).padStart(2, '0');
+      var minutes = String(defaultTime.getMinutes()).padStart(2, '0');
       timePicker.value = hours + ':' + minutes;
 
       // Update hint with allowed window
       var minStr = timeWindowMin.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
       var maxStr = timeWindowMax.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
-      timePickerHint.textContent = 'Allowed window: ' + minStr + ' \u2013 ' + maxStr;
+      timePickerHint.textContent = 'Allowed: ' + minStr + ' \u2013 ' + maxStr + ' (5 min steps)';
       timePickerHint.className = 'text-xs text-gray-500 mt-1';
 
     } catch (error) {
@@ -131,15 +137,20 @@
       var now = new Date();
       serverTime = now;
       timeWindowMin = new Date(now.getTime() - 10 * 60 * 1000);
-      timeWindowMax = new Date(now.getTime() + 10 * 60 * 1000);
+      timeWindowMax = new Date(now.getTime());
 
-      var h = String(now.getHours()).padStart(2, '0');
-      var m = String(now.getMinutes()).padStart(2, '0');
+      // Round min down to nearest 5 minutes
+      timeWindowMin.setMinutes(Math.floor(timeWindowMin.getMinutes() / 5) * 5, 0, 0);
+      var defaultTime = new Date(now.getTime());
+      defaultTime.setMinutes(Math.floor(defaultTime.getMinutes() / 5) * 5, 0, 0);
+
+      var h = String(defaultTime.getHours()).padStart(2, '0');
+      var m = String(defaultTime.getMinutes()).padStart(2, '0');
       timePicker.value = h + ':' + m;
 
       var minStr2 = timeWindowMin.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
       var maxStr2 = timeWindowMax.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
-      timePickerHint.textContent = 'Device time window: ' + minStr2 + ' \u2013 ' + maxStr2;
+      timePickerHint.textContent = 'Device time: ' + minStr2 + ' \u2013 ' + maxStr2 + ' (5 min steps)';
       timePickerHint.className = 'text-xs text-orange-600 mt-1';
     }
 
@@ -158,7 +169,7 @@
   }
 
   /**
-   * Validate selected time is within ±10 minute window.
+   * Validate selected time is within 10-min-past window, rounded to 5 min steps.
    * Returns Date object if valid, null if invalid.
    */
   function getSelectedTime() {
@@ -177,18 +188,18 @@
     if (isNaN(hours) || isNaN(minutes)) return null;
     if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
 
+    // Enforce 5-minute step
+    if (minutes % 5 !== 0) return null;
+
     // Build selected time using the same calendar date as serverTime
     var base = serverTime || new Date();
     var selected = new Date(base);
     selected.setHours(hours, minutes, 0, 0);
 
-    // Handle midnight-crossing edge case:
-    // If serverTime is 00:05 and user picks 23:58, that's -7 minutes (within window).
-    // If serverTime is 23:58 and user picks 00:05, that's +7 minutes (within window).
+    // Handle midnight-crossing edge case
     var diffMs = selected.getTime() - base.getTime();
     var tenMinMs = 10 * 60 * 1000;
 
-    // If the naive diff is more than 10 min, try shifting by one day to see if it's the cross-midnight case
     if (diffMs > tenMinMs) {
       selected.setDate(selected.getDate() - 1);
       diffMs = selected.getTime() - base.getTime();
@@ -197,7 +208,8 @@
       diffMs = selected.getTime() - base.getTime();
     }
 
-    if (diffMs < -tenMinMs || diffMs > tenMinMs) {
+    // Must be within 10 min in the past, not in the future
+    if (diffMs < -tenMinMs || diffMs > 0) {
       return null;
     }
 
@@ -246,7 +258,7 @@
     var actionBtn = document.getElementById('clock-action-btn');
 
     if (!selectedTime) {
-      showToast('Selected time is outside the allowed \u00b110 minute window.', 'error', 5000);
+      showToast('Selected time must be within 10 min in the past, in 5 min steps.', 'error', 5000);
       return;
     }
 
