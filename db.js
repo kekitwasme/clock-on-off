@@ -566,6 +566,142 @@
   // ===== Audit Log Functions =====
 
   /**
+   * Get all breaks for a shift.
+   * @param {string} shiftId
+   * @returns {Promise<Array>}
+   */
+  async function getShiftBreaks(shiftId) {
+    var client = getClient();
+    var result = await client
+      .from('breaks')
+      .select('id, shift_id, break_start, break_end, created_at')
+      .eq('shift_id', shiftId)
+      .order('break_start', { ascending: true });
+
+    if (result.error) {
+      throw new Error('Failed to get breaks: ' + result.error.message);
+    }
+    return result.data || [];
+  }
+
+  /**
+   * Calculate total break duration for a shift in milliseconds.
+   * @param {string} shiftId
+   * @returns {Promise<number>}
+   */
+  async function getShiftBreakDuration(shiftId) {
+    var client = getClient();
+    var result = await client.rpc('get_shift_break_duration_minutes', {
+      p_shift_id: shiftId
+    });
+
+    if (result.error) {
+      throw new Error('Failed to get break duration: ' + result.error.message);
+    }
+    return (result.data || 0) * 60 * 1000;
+  }
+
+  // ===== Roster Functions =====
+
+  /**
+   * Create a roster entry (admin only).
+   * @param {object} entry - { staffId, date, startTime, endTime, notes? }
+   * @returns {Promise<object>}
+   */
+  async function createRosterEntry(entry) {
+    var client = getClient();
+    var result = await client.rpc('create_roster_entry', {
+      p_staff_id: entry.staffId,
+      p_date: entry.date,
+      p_start: entry.startTime,
+      p_end: entry.endTime,
+      p_notes: entry.notes || null
+    });
+
+    if (result.error) {
+      throw new Error('Failed to create roster: ' + result.error.message);
+    }
+    return result.data;
+  }
+
+  /**
+   * Update a roster entry (admin only).
+   * @param {string} rosterId
+   * @param {object} updates - { startTime?, endTime?, notes? }
+   * @returns {Promise<object>}
+   */
+  async function updateRosterEntry(rosterId, updates) {
+    var client = getClient();
+    var result = await client.rpc('update_roster_entry', {
+      p_roster_id: rosterId,
+      p_start: updates.startTime || null,
+      p_end: updates.endTime || null,
+      p_notes: updates.notes !== undefined ? updates.notes : null
+    });
+
+    if (result.error) {
+      throw new Error('Failed to update roster: ' + result.error.message);
+    }
+    return result.data;
+  }
+
+  /**
+   * Delete a roster entry (admin only).
+   * @param {string} rosterId
+   * @returns {Promise<void>}
+   */
+  async function deleteRosterEntry(rosterId) {
+    var client = getClient();
+    var result = await client.rpc('delete_roster_entry', {
+      p_roster_id: rosterId
+    });
+
+    if (result.error) {
+      throw new Error('Failed to delete roster: ' + result.error.message);
+    }
+    return result.data;
+  }
+
+  /**
+   * Get roster entries for a date range.
+   * @param {string} startDate - ISO date string (YYYY-MM-DD)
+   * @param {string} endDate - ISO date string
+   * @returns {Promise<Array>}
+   */
+  async function getRosterForWeek(startDate, endDate) {
+    var client = getClient();
+    var result = await client.rpc('get_roster_for_week', {
+      p_start_date: startDate,
+      p_end_date: endDate
+    });
+
+    if (result.error) {
+      throw new Error('Failed to get roster: ' + result.error.message);
+    }
+    return result.data || [];
+  }
+
+  /**
+   * Get upcoming roster entries for a staff member.
+   * @param {string} staffId
+   * @param {number} daysAhead
+   * @returns {Promise<Array>}
+   */
+  async function getMyRoster(staffId, daysAhead) {
+    daysAhead = daysAhead !== undefined ? daysAhead : 14;
+    var client = getClient();
+    var result = await client.rpc('get_my_roster', {
+      p_staff_id: staffId,
+      p_days_ahead: daysAhead
+    });
+
+    if (result.error) {
+      throw new Error('Failed to get roster: ' + result.error.message);
+    }
+    return result.data || [];
+  }
+
+  /**
    * Get audit log entries (admin only).
    * @param {number} limit
    * @returns {Promise<Array>}
@@ -718,6 +854,13 @@
     startBreak: startBreak,
     endBreak: endBreak,
     getActiveBreak: getActiveBreak,
+    getShiftBreaks: getShiftBreaks,
+    getShiftBreakDuration: getShiftBreakDuration,
+    createRosterEntry: createRosterEntry,
+    updateRosterEntry: updateRosterEntry,
+    deleteRosterEntry: deleteRosterEntry,
+    getRosterForWeek: getRosterForWeek,
+    getMyRoster: getMyRoster,
     calculateDuration: calculateDuration,
     formatDuration: formatDuration,
     formatDateTime: formatDateTime,
