@@ -13,6 +13,10 @@
   // ===== State =====
   var currentStaffList = [];
   var currentTimesheets = [];
+  var adminInitialized = false;
+  var isLoadingStaff = false;
+  var isLoadingTimesheets = false;
+  var isLoadingAudit = false;
 
   // ===== Admin Panel Access =====
 
@@ -84,10 +88,14 @@
 
   /**
    * Load and display all staff members.
+   * Guarded to prevent concurrent execution causing duplicates.
    */
   async function loadAdminStaff() {
+    if (isLoadingStaff) return;
+    isLoadingStaff = true;
+
     var staffList = document.getElementById('staff-list');
-    if (!staffList) return;
+    if (!staffList) { isLoadingStaff = false; return; }
     staffList.innerHTML = '';
 
     try {
@@ -95,6 +103,7 @@
 
       if (!currentStaffList || currentStaffList.length === 0) {
         staffList.innerHTML = '<p class="text-center text-gray-500 py-4">No staff members found.</p>';
+        isLoadingStaff = false;
         return;
       }
 
@@ -106,6 +115,8 @@
       if (window.ClockApp) {
         window.ClockApp.showToast(error.message || 'Failed to load staff list.', 'error');
       }
+    } finally {
+      isLoadingStaff = false;
     }
   }
 
@@ -352,11 +363,15 @@
 
   /**
    * Load and display all timesheets with filters.
+   * Guarded to prevent concurrent execution.
    */
   async function loadAdminTimesheets() {
+    if (isLoadingTimesheets) return;
+    isLoadingTimesheets = true;
+
     var timesheetsList = document.getElementById('timesheets-list');
     var staffFilter = document.getElementById('timesheet-staff-filter');
-    if (!timesheetsList) return;
+    if (!timesheetsList) { isLoadingTimesheets = false; return; }
 
     timesheetsList.innerHTML = '<div class="loading-spinner"></div><p class="text-center text-gray-600 mt-2">Loading...</p>';
 
@@ -368,6 +383,7 @@
 
       if (!currentTimesheets || currentTimesheets.length === 0) {
         timesheetsList.innerHTML = '<p class="text-center text-gray-500 py-4">No shifts found.</p>';
+        isLoadingTimesheets = false;
         return;
       }
 
@@ -378,6 +394,8 @@
       if (window.ClockApp) {
         window.ClockApp.showToast(error.message || 'Failed to load timesheets.', 'error');
       }
+    } finally {
+      isLoadingTimesheets = false;
     }
   }
 
@@ -642,10 +660,14 @@
 
   /**
    * Load and display audit log entries.
+   * Guarded to prevent concurrent execution.
    */
   async function loadAdminAudit() {
+    if (isLoadingAudit) return;
+    isLoadingAudit = true;
+
     var auditList = document.getElementById('audit-list');
-    if (!auditList) return;
+    if (!auditList) { isLoadingAudit = false; return; }
     auditList.innerHTML = '<div class="loading-spinner"></div><p class="text-center text-gray-600 mt-2">Loading...</p>';
 
     try {
@@ -653,6 +675,7 @@
 
       if (!entries || entries.length === 0) {
         auditList.innerHTML = '<p class="text-center text-gray-500 py-4">No audit entries found.</p>';
+        isLoadingAudit = false;
         return;
       }
 
@@ -666,6 +689,8 @@
       if (window.ClockApp) {
         window.ClockApp.showToast(error.message || 'Failed to load audit log.', 'error');
       }
+    } finally {
+      isLoadingAudit = false;
     }
   }
 
@@ -723,8 +748,12 @@
 
   /**
    * Initialise the entire admin module.
+   * Guarded to prevent duplicate listeners when called multiple times.
    */
   function initAdmin() {
+    if (adminInitialized) return;
+    adminInitialized = true;
+
     initAdminButton();
     initAdminBack();
     initAdminTabs();
