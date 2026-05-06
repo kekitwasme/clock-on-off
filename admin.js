@@ -960,9 +960,9 @@
         tr.innerHTML =
           '<td class="p-2 font-semibold">' + escapeHtml(group.staff.name) + '</td>' +
           '<td class="p-2 text-right">' + hours + '</td>' +
-          '<td class="p-2 text-right ' + (group.lateCount > 0 ? 'text-orange-600' : 'text-gray-400') + '"'>' + group.lateCount + '</td>' +
-          '<td class="p-2 text-right ' + (group.earlyCount > 0 ? 'text-orange-600' : 'text-gray-400') + '"'>' + group.earlyCount + '</td>' +
-          '<td class="p-2 text-right ' + (group.adjustedCount > 0 ? 'text-blue-600' : 'text-gray-400') + '"'>' + group.adjustedCount + '</td>' +
+          '<td class="p-2 text-right ' + (group.lateCount > 0 ? 'text-orange-600' : 'text-gray-400') + '">' + group.lateCount + '</td>' +
+          '<td class="p-2 text-right ' + (group.earlyCount > 0 ? 'text-orange-600' : 'text-gray-400') + '">' + group.earlyCount + '</td>' +
+          '<td class="p-2 text-right ' + (group.adjustedCount > 0 ? 'text-blue-600' : 'text-gray-400') + '">' + group.adjustedCount + '</td>' +
           '<td class="p-2 text-right">' + group.shifts.length + '</td>';
         tbody.appendChild(tr);
       });
