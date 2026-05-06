@@ -219,7 +219,7 @@
     var client = getClient();
     var result = await client
       .from('staff')
-      .select('id, name, role, active, failed_attempts, locked_until, created_at')
+      .select('id, name, role, active, expected_start_time, expected_end_time, failed_attempts, locked_until, created_at')
       .order('name', { ascending: true });
 
     if (result.error) {
@@ -242,7 +242,9 @@
       p_name: staffData.name,
       p_pin: staffData.pin,
       p_role: staffData.role || 'staff',
-      p_active: staffData.active !== undefined ? staffData.active : true
+      p_active: staffData.active !== undefined ? staffData.active : true,
+      p_expected_start_time: staffData.expectedStartTime || null,
+      p_expected_end_time: staffData.expectedEndTime || null
     });
 
     if (result.error) {
@@ -267,7 +269,9 @@
       p_name: updates.name !== undefined ? updates.name : null,
       p_pin: updates.pin !== undefined ? updates.pin : null,
       p_role: updates.role !== undefined ? updates.role : null,
-      p_active: updates.active !== undefined ? updates.active : null
+      p_active: updates.active !== undefined ? updates.active : null,
+      p_expected_start_time: updates.expectedStartTime !== undefined ? updates.expectedStartTime : null,
+      p_expected_end_time: updates.expectedEndTime !== undefined ? updates.expectedEndTime : null
     });
 
     if (result.error) {
@@ -612,10 +616,11 @@
     var client = getClient();
     var result = await client.rpc('create_roster_entry', {
       p_staff_id: entry.staffId,
-      p_date: entry.date,
-      p_start: entry.startTime,
-      p_end: entry.endTime,
-      p_notes: entry.notes || null
+      p_roster_date: entry.rosterDate,
+      p_start_time: entry.startTime,
+      p_end_time: entry.endTime,
+      p_notes: entry.notes || null,
+      p_force: entry.force || false
     });
 
     if (result.error) {
@@ -633,9 +638,9 @@
   async function updateRosterEntry(rosterId, updates) {
     var client = getClient();
     var result = await client.rpc('update_roster_entry', {
-      p_roster_id: rosterId,
-      p_start: updates.startTime || null,
-      p_end: updates.endTime || null,
+      p_id: rosterId,
+      p_start_time: updates.startTime || null,
+      p_end_time: updates.endTime || null,
       p_notes: updates.notes !== undefined ? updates.notes : null
     });
 

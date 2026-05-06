@@ -75,6 +75,16 @@
                 </div>
             </div>
 
+            <!-- Next Shift Card -->
+            <div id="next-shift-card" class="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-4 hidden">
+                <div class="flex items-center gap-2">
+                    <span class="text-blue-500 text-lg">🗓️</span>
+                    <div class="flex-1 min-w-0">
+                        <p id="next-shift-text" class="text-sm text-blue-800 font-medium truncate"></p>
+                    </div>
+                </div>
+            </div>
+
             <!-- Clock Action Card -->
             <div class="bg-white rounded-lg shadow-md p-6 mb-4">
                 <h2 class="text-lg font-semibold text-gray-800 mb-4">Record Time</h2>
@@ -133,6 +143,11 @@
             </div>
         </header>
         <main class="p-4">
+            <!-- Toggle: Worked / Scheduled -->
+            <div class="flex bg-gray-100 rounded-lg p-1 mb-4">
+                <button id="shifts-toggle-worked" class="flex-1 py-2 text-sm font-semibold rounded-md bg-white shadow text-gray-800 transition-all">Worked</button>
+                <button id="shifts-toggle-scheduled" class="flex-1 py-2 text-sm font-semibold rounded-md text-gray-500 hover:text-gray-700 transition-all">Scheduled</button>
+            </div>
             <div id="shifts-list" class="space-y-3">
                 <!-- Shifts will be rendered here -->
             </div>
@@ -159,6 +174,7 @@
             <div class="flex gap-2 mb-4 overflow-x-auto">
                 <button class="admin-tab active flex-1 py-2 px-3 bg-gray-800 text-white rounded text-sm whitespace-nowrap" data-tab="staff">Staff</button>
                 <button class="admin-tab flex-1 py-2 px-3 bg-gray-200 text-gray-800 rounded text-sm whitespace-nowrap" data-tab="timesheets">Timesheets</button>
+                <button class="admin-tab flex-1 py-2 px-3 bg-gray-200 text-gray-800 rounded text-sm whitespace-nowrap" data-tab="roster">Roster</button>
                 <button class="admin-tab flex-1 py-2 px-3 bg-gray-200 text-gray-800 rounded text-sm whitespace-nowrap" data-tab="audit">Audit Log</button>
             </div>
 
@@ -184,6 +200,26 @@
                 </div>
                 <div id="timesheets-list" class="space-y-3">
                     <!-- Timesheets rendered here -->
+                </div>
+            </div>
+
+            <!-- Roster Tab -->
+            <div id="admin-roster-tab" class="admin-tab-content hidden">
+                <div class="flex items-center justify-between mb-4">
+                    <button id="roster-prev-week" class="bg-gray-200 text-gray-800 px-3 py-2 rounded text-sm font-semibold hover:bg-gray-300">← Prev</button>
+                    <span id="roster-week-label" class="text-sm font-semibold text-gray-700"></span>
+                    <button id="roster-next-week" class="bg-gray-200 text-gray-800 px-3 py-2 rounded text-sm font-semibold hover:bg-gray-300">Next →</button>
+                </div>
+                <button id="roster-current-week" class="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold mb-4 hover:bg-blue-700 text-sm">Current Week</button>
+                <div id="roster-grid-container">
+                    <!-- Roster grid rendered here -->
+                </div>
+                <div id="roster-loading" class="text-center py-8 hidden">
+                    <div class="loading-spinner"></div>
+                    <p class="text-gray-600 mt-2">Loading roster...</p>
+                </div>
+                <div id="roster-empty" class="text-center py-8 hidden">
+                    <p class="text-gray-600">No roster entries for this week.</p>
                 </div>
             </div>
 
@@ -220,6 +256,14 @@
                     </select>
                 </div>
                 <div class="mb-4">
+                    <label class="block text-sm text-gray-600 mb-1">Expected Start Time</label>
+                    <input type="time" id="staff-expected-start-input" class="w-full p-3 border border-gray-300 rounded-lg">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm text-gray-600 mb-1">Expected End Time</label>
+                    <input type="time" id="staff-expected-end-input" class="w-full p-3 border border-gray-300 rounded-lg">
+                </div>
+                <div class="mb-4">
                     <label class="flex items-center">
                         <input type="checkbox" id="staff-active-input" checked>
                         <span class="ml-2 text-sm text-gray-600">Active</span>
@@ -228,6 +272,48 @@
                 <div class="flex gap-3">
                     <button type="button" id="staff-modal-cancel" class="flex-1 py-3 bg-gray-200 text-gray-800 rounded-lg font-semibold">Cancel</button>
                     <button type="submit" class="flex-1 py-3 bg-blue-600 text-white rounded-lg font-semibold">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Roster Edit Modal -->
+    <div id="roster-modal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <h2 id="roster-modal-title" class="text-xl font-bold mb-4">Edit Roster</h2>
+            <form id="roster-form">
+                <input type="hidden" id="roster-id">
+                <div class="mb-4">
+                    <label class="block text-sm text-gray-600 mb-1">Staff</label>
+                    <select id="roster-staff-input" class="w-full p-3 border border-gray-300 rounded-lg" required>
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm text-gray-600 mb-1">Date</label>
+                    <input type="date" id="roster-date-input" class="w-full p-3 border border-gray-300 rounded-lg" required>
+                </div>
+                <div class="mb-4 flex gap-3">
+                    <div class="flex-1">
+                        <label class="block text-sm text-gray-600 mb-1">Start Time</label>
+                        <input type="time" id="roster-start-input" class="w-full p-3 border border-gray-300 rounded-lg" required>
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-sm text-gray-600 mb-1">End Time</label>
+                        <input type="time" id="roster-end-input" class="w-full p-3 border border-gray-300 rounded-lg" required>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm text-gray-600 mb-1">Notes</label>
+                    <textarea id="roster-notes-input" class="w-full p-3 border border-gray-300 rounded-lg" rows="2"></textarea>
+                </div>
+                <div class="flex gap-3">
+                    <button type="button" id="roster-modal-cancel" class="flex-1 py-3 bg-gray-200 text-gray-800 rounded-lg font-semibold">Cancel</button>
+                    <button type="submit" class="flex-1 py-3 bg-blue-600 text-white rounded-lg font-semibold">Save</button>
+                </div>
+                <div class="mt-3 text-center">
+                    <button type="button" id="roster-delete-btn" class="text-red-600 text-sm font-semibold hidden">Delete Entry</button>
                 </div>
             </form>
         </div>

@@ -25,6 +25,73 @@
   var currentBreak = null;
   var breakTimerInterval = null;
 
+  // ===== Roster State =====
+  var upcomingRoster = null;
+
+  // ===== Late/Early Check Helper =====
+
+  /**
+   * Check if actual time is significantly different from expected time.
+   * @param {Date|string} actualTime - The actual clock on/off time
+   * @param {string|null} expectedTime - Expected time as "HH:MM" string, or null
+   * @param {string} action - 'on' or 'off' for message wording
+   * @returns {object|null} - { message: string, severity: string } or null
+   */
+  function checkLateEarly(actualTime, expectedTime, action) {
+    if (!expectedTime || typeof expectedTime !== 'string') {
+      return null;
+    }
+
+    // Parse expected time "HH:MM"
+    var parts = expectedTime.split(':');
+    if (parts.length !== 2) return null;
+
+    var expHours = parseInt(parts[0], 10);
+    var expMinutes = parseInt(parts[1], 10);
+    if (isNaN(expHours) || isNaN(expMinutes)) return null;
+
+    // Build expected Date on same day as actualTime
+    var actual = new Date(actualTime);
+    var expected = new Date(actual);
+    expected.setHours(expHours, expMinutes, 0, 0);
+
+    // Calculate minute difference (accounting for midnight crossing)
+    var diffMs = actual.getTime() - expected.getTime();
+    // Normalize to same-day comparison: if diff is > 12h, adjust by 24h
+    var twelveHours = 12 * 60 * 60 * 1000;
+    if (diffMs > twelveHours) {
+      expected.setDate(expected.getDate() + 1);
+      diffMs = actual.getTime() - expected.getTime();
+    } else if (diffMs < -twelveHours) {
+      expected.setDate(expected.getDate() - 1);
+      diffMs = actual.getTime() - expected.getTime();
+    }
+
+    var diffMinutes = Math.round(diffMs / 60000);
+    if (Math.abs(diffMinutes) <= 15) {
+      return null; // Within threshold, no alert
+    }
+
+    var absMinutes = Math.abs(diffMinutes);
+    var isLate = diffMinutes > 0;
+    var verb = action === 'on'
+      ? (isLate ? 'Started' : 'Started early')
+      : (isLate ? 'Finished' : 'Finished early');
+
+    var severity;
+    var message;
+    if (absMinutes > 30) {
+      severity = 'alert'; // orange
+      var suffix = action === 'on' ? ' — check with manager?' : ' — check with manager?';
+      message = verb + ' ' + absMinutes + ' min ' + (isLate ? 'late' : 'early') + suffix;
+    } else {
+      severity = 'warning'; // yellow
+      message = verb + ' ' + absMinutes + ' min ' + (isLate ? 'late' : 'early');
+    }
+
+    return { message: message, severity: severity };
+  }
+
   // ===== Break Timer =====
 
   function startBreakTimer() {
@@ -86,8 +153,23 @@
     var actionBtn = document.getElementById('clock-action-btn');
     var breakBtn = document.getElementById('break-action-btn');
     var breakTimerEl = document.getElementById('break-timer-display');
+    var nextShiftCard = document.getElementById('next-shift-card');
+    var nextShiftText = document.getElementById('next-shift-text');
 
     if (!statusIndicator || !statusText || !shiftDuration || !actionBtn) return;
+
+    // Update next shift display
+    if (nextShiftCard && nextShiftText) {
+      if (upcomingRoster) {
+        var rDate = new Date(upcomingRoster.roster_date);
+        var dateStr = rDate.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+        nextShiftText.textContent = 'Next shift: ' + dateStr + ', ' +
+          upcomingRoster.start_time.slice(0, 5) + ' — ' + upcomingRoster.end_time.slice(0, 5);
+        nextShiftCard.classList.remove('hidden');
+      } else {
+        nextShiftCard.classList.add('hidden');
+      }
+    }
 
     if (currentShift) {
       if (currentBreak) {
@@ -347,6 +429,19 @@
         var timeStr = window.ClockDB.formatTime(isoTime);
         var adjStr = adjusted ? ' (adjusted)' : '';
         showToast('Clocked on at ' + timeStr + adjStr, 'success');
+
+        // Late/early check for clock on
+        try {
+          var staff = await window.ClockDB.getCurrentStaff();
+          if (staff && staff.expected_start_time) {
+            var alertResult = checkLateEarly(isoTime, staff.expected_start_time, 'on');
+            if (alertResult) {
+              showToast(alertResult.message, alertResult.severity, 6000);
+            }
+          }
+        } catch (checkErr) {
+          console.warn('Late/early check failed for clock on:', checkErr.message);
+        }
       } else {
         if (!currentShift || !currentShift.id) {
           throw new Error('No active shift to clock off from.');
@@ -368,6 +463,19 @@
         var timeStr2 = window.ClockDB.formatTime(isoTime);
         var adjStr2 = adjusted ? ' (adjusted)' : '';
         showToast('Clocked off at ' + timeStr2 + adjStr2 + ' \u2022 Shift: ' + durationStr, 'success');
+
+        // Late/early check for clock off
+        try {
+          var staffOff = await window.ClockDB.getCurrentStaff();
+          if (staffOff && staffOff.expected_end_time) {
+            var alertOff = checkLateEarly(isoTime, staffOff.expected_end_time, 'off');
+            if (alertOff) {
+              showToast(alertOff.message, alertOff.severity, 6000);
+            }
+          }
+        } catch (checkErr) {
+          console.warn('Late/early check failed for clock off:', checkErr.message);
+        }
       }
 
     } catch (error) {
@@ -502,7 +610,108 @@
     }
   }
 
+  // ===== Date Grouping Helper (shared with admin) =====
+
+  /**
+   * Group shifts by calendar date (YYYY-MM-DD).
+   * Returns a sorted array of { dateKey, dateLabel, shiftCount, totalHours, shifts }.
+   * Active shifts counted in shiftCount but not totalHours.
+   * @param {Array} shifts
+   * @returns {Array}
+   */
+  function groupShiftsByDate(shifts) {
+    if (!shifts || shifts.length === 0) return [];
+
+    var groups = {};
+    shifts.forEach(function(shift) {
+      var dateKey = shift.clock_in ? shift.clock_in.slice(0, 10) : 'Unknown';
+      if (!groups[dateKey]) {
+        groups[dateKey] = {
+          dateKey: dateKey,
+          shifts: [],
+          shiftCount: 0,
+          totalHours: 0
+        };
+      }
+      groups[dateKey].shifts.push(shift);
+      groups[dateKey].shiftCount += 1;
+
+      if (shift.clock_out) {
+        var durationMs = window.ClockDB.calculateDuration(shift.clock_in, shift.clock_out);
+        groups[dateKey].totalHours += durationMs / (1000 * 60 * 60);
+      }
+    });
+
+    var result = Object.values(groups);
+    result.sort(function(a, b) {
+      if (a.dateKey === 'Unknown') return 1;
+      if (b.dateKey === 'Unknown') return -1;
+      return b.dateKey.localeCompare(a.dateKey);
+    });
+
+    result.forEach(function(group) {
+      if (group.dateKey === 'Unknown') {
+        group.dateLabel = 'Unknown Date';
+      } else {
+        var date = new Date(group.dateKey + 'T00:00:00');
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+        var yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        var dayDiff = Math.round((today - date) / (1000 * 60 * 60 * 24));
+        var options = { weekday: 'short', day: 'numeric', month: 'short' };
+        var dateStr = date.toLocaleDateString('en-AU', options);
+        if (dayDiff === 0) {
+          group.dateLabel = 'Today, ' + dateStr;
+        } else if (dayDiff === 1) {
+          group.dateLabel = 'Yesterday, ' + dateStr;
+        } else {
+          group.dateLabel = dateStr;
+        }
+      }
+      group.totalHoursStr = Math.round(group.totalHours * 10) / 10;
+    });
+
+    return result;
+  }
+
   // ===== My Shifts View =====
+
+  var currentShiftsView = 'worked'; // 'worked' | 'scheduled'
+
+  function initShiftsToggle() {
+    var workedBtn = document.getElementById('shifts-toggle-worked');
+    var scheduledBtn = document.getElementById('shifts-toggle-scheduled');
+
+    if (workedBtn) {
+      workedBtn.addEventListener('click', function() {
+        currentShiftsView = 'worked';
+        updateShiftsToggleUI();
+        loadMyShifts();
+      });
+    }
+    if (scheduledBtn) {
+      scheduledBtn.addEventListener('click', function() {
+        currentShiftsView = 'scheduled';
+        updateShiftsToggleUI();
+        loadMyShifts();
+      });
+    }
+  }
+
+  function updateShiftsToggleUI() {
+    var workedBtn = document.getElementById('shifts-toggle-worked');
+    var scheduledBtn = document.getElementById('shifts-toggle-scheduled');
+    if (!workedBtn || !scheduledBtn) return;
+
+    if (currentShiftsView === 'worked') {
+      workedBtn.className = 'flex-1 py-2 text-sm font-semibold rounded-md bg-white shadow text-gray-800 transition-all';
+      scheduledBtn.className = 'flex-1 py-2 text-sm font-semibold rounded-md text-gray-500 hover:text-gray-700 transition-all';
+    } else {
+      workedBtn.className = 'flex-1 py-2 text-sm font-semibold rounded-md text-gray-500 hover:text-gray-700 transition-all';
+      scheduledBtn.className = 'flex-1 py-2 text-sm font-semibold rounded-md bg-white shadow text-gray-800 transition-all';
+    }
+  }
 
   async function loadMyShifts() {
     var shiftsList = document.getElementById('shifts-list');
@@ -522,23 +731,91 @@
         return;
       }
 
-      var shifts = await window.ClockDB.getStaffShifts(session.id, 30);
-      shiftsLoading.classList.add('hidden');
+      if (currentShiftsView === 'scheduled') {
+        // Load roster entries
+        var roster = await window.ClockDB.getMyRoster(30);
+        shiftsLoading.classList.add('hidden');
 
-      if (!shifts || shifts.length === 0) {
-        shiftsEmpty.classList.remove('hidden');
-        return;
+        if (!roster || roster.length === 0) {
+          shiftsEmpty.textContent = 'No upcoming shifts scheduled';
+          shiftsEmpty.classList.remove('hidden');
+          return;
+        }
+
+        roster.forEach(function(entry) {
+          shiftsList.appendChild(createRosterCard(entry));
+        });
+      } else {
+        // Load worked shifts
+        var shifts = await window.ClockDB.getStaffShifts(session.id, 30);
+        shiftsLoading.classList.add('hidden');
+
+        if (!shifts || shifts.length === 0) {
+          shiftsEmpty.textContent = 'No shifts recorded yet';
+          shiftsEmpty.classList.remove('hidden');
+          return;
+        }
+
+        var grouped = groupShiftsByDate(shifts);
+        grouped.forEach(function(group) {
+          var dateGroup = document.createElement('div');
+          dateGroup.className = 'date-group';
+
+          var header = document.createElement('div');
+          header.className = 'date-group-header';
+          header.innerHTML =
+            '<div class="date-group-title">' + escapeHtml(group.dateLabel) + '</div>' +
+            '<div class="date-group-meta">' +
+              '<span>' + group.shiftCount + (group.shiftCount === 1 ? ' shift' : ' shifts') + '</span>' +
+              '<span>•</span>' +
+              '<span>' + group.totalHoursStr + (group.totalHoursStr === 1 ? ' hr' : ' hrs') + '</span>' +
+            '</div>';
+
+          header.addEventListener('click', function() {
+            dateGroup.classList.toggle('date-group-collapsed');
+          });
+
+          var content = document.createElement('div');
+          content.className = 'date-group-content';
+
+          group.shifts.forEach(function(shift) {
+            content.appendChild(createShiftCard(shift));
+          });
+
+          dateGroup.appendChild(header);
+          dateGroup.appendChild(content);
+          shiftsList.appendChild(dateGroup);
+        });
       }
-
-      shifts.forEach(function(shift) {
-        shiftsList.appendChild(createShiftCard(shift));
-      });
-
     } catch (error) {
       console.error('Failed to load shifts:', error);
       shiftsLoading.classList.add('hidden');
       showToast('Failed to load shifts. ' + (error.message || ''), 'error');
     }
+  }
+
+  function createRosterCard(entry) {
+    var card = document.createElement('div');
+    var date = new Date(entry.roster_date);
+    var dateStr = date.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+    var isPast = date < new Date();
+
+    card.className = 'shift-card ' + (isPast ? 'completed' : 'active');
+    card.innerHTML =
+      '<div class="flex justify-between items-start mb-2">' +
+        '<span class="font-semibold text-gray-800">' + escapeHtml(dateStr) + '</span>' +
+        '<span class="text-xs px-2 py-1 rounded-full ' + (isPast ? 'bg-gray-100 text-gray-500' : 'bg-blue-100 text-blue-700') + '">' + (isPast ? 'Past' : 'Upcoming') + '</span>' +
+      '</div>' +
+      '<div class="flex justify-between items-center">' +
+        '<div class="shift-time">' +
+          '<span class="text-green-600 font-medium">' + entry.start_time.slice(0, 5) + '</span>' +
+          '<span class="mx-2">→</span>' +
+          '<span class="text-red-600 font-medium">' + entry.end_time.slice(0, 5) + '</span>' +
+        '</div>' +
+      '</div>' +
+      (entry.notes ? '<p class="text-sm text-gray-500 mt-2">' + escapeHtml(entry.notes) + '</p>' : '');
+
+    return card;
   }
 
   function createShiftCard(shift) {
@@ -559,6 +836,24 @@
       adjustedBadges.push('<span class="shift-adjusted-badge">out adjusted</span>');
     }
 
+    // Break info
+    var breakInfo = '';
+    if (shift.breaks && shift.breaks.length > 0) {
+      var breakCount = shift.breaks.length;
+      var totalBreakMs = 0;
+      shift.breaks.forEach(function(b) {
+        if (b.break_end) {
+          totalBreakMs += new Date(b.break_end) - new Date(b.break_start);
+        }
+      });
+      var totalBreakMin = Math.round(totalBreakMs / 60000);
+      var breakLabel = breakCount === 1 ? '1 break' : breakCount + ' breaks';
+      breakInfo = '<div class="text-xs text-amber-600 font-medium mt-1 flex items-center gap-1">' +
+        '<span>\u2615</span>' +
+        '<span>' + breakLabel + ' \u2022 ' + totalBreakMin + ' min total</span>' +
+      '</div>';
+    }
+
     card.className = 'shift-card ' + (isActive ? 'active' : 'completed');
     card.innerHTML =
       '<div class="flex justify-between items-start mb-2">' +
@@ -573,6 +868,7 @@
         '</div>' +
         '<div class="shift-duration">' + escapeHtml(duration) + '</div>' +
       '</div>' +
+      breakInfo +
       (shift.notes ? '<p class="text-sm text-gray-500 mt-2">' + escapeHtml(shift.notes) + '</p>' : '');
 
     return card;
@@ -658,6 +954,17 @@
       } else {
         currentBreak = null;
       }
+
+      // Load upcoming roster
+      try {
+        var roster = await window.ClockDB.getMyRoster(7);
+        upcomingRoster = (roster && roster.length > 0) ? roster[0] : null;
+        checkRosterForToday();
+      } catch (rosterErr) {
+        console.warn('Failed to load roster:', rosterErr);
+        upcomingRoster = null;
+      }
+
       updateStatusDisplay();
 
       // Refresh server time in background
@@ -671,16 +978,38 @@
   function handleLogout() {
     currentShift = null;
     currentBreak = null;
+    upcomingRoster = null;
     stopDurationTimer();
     stopBreakTimer();
   }
 
-  // ===== Main Initialization =====
+  // ===== Roster info alongside clock status =====
+  // If staff is scheduled for today but not clocked on yet, show reminder
+  function checkRosterForToday() {
+    if (!upcomingRoster || currentShift) return;
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    var rosterDate = new Date(upcomingRoster.roster_date);
+    rosterDate.setHours(0, 0, 0, 0);
+    if (rosterDate.getTime() === today.getTime()) {
+      var now = new Date();
+      var startParts = upcomingRoster.start_time.split(':');
+      var startHour = parseInt(startParts[0], 10);
+      var startMin = parseInt(startParts[1], 10);
+      var startTime = new Date(today);
+      startTime.setHours(startHour, startMin, 0, 0);
+      var diffMin = Math.round((startTime - now) / 60000);
+      if (diffMin > 0 && diffMin <= 30) {
+        showToast('Your shift starts at ' + upcomingRoster.start_time.slice(0, 5) + '. Don\'t forget to clock on!', 'info', 6000);
+      }
+    }
+  }
 
   async function init() {
     initClockAction();
     initTimePickerButtons();
     initNavigation();
+    initShiftsToggle();
 
     window.addEventListener('session:login', handleLogin);
     window.addEventListener('session:restored', handleLogin);
@@ -698,6 +1027,7 @@
     showToast: showToast,
     updateStatusDisplay: updateStatusDisplay,
     loadMyShifts: loadMyShifts,
-    initTimePicker: initTimePicker
+    initTimePicker: initTimePicker,
+    checkLateEarly: checkLateEarly
   };
 })();
