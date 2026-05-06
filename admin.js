@@ -1238,12 +1238,20 @@
         grid.appendChild(dayHeader);
       }
 
-      // Staff rows
+      // Staff rows - one per staff with lunch/dinner sub-rows
       staffList.forEach(function(staff) {
+        // Staff name cell (spans both shift rows visually)
         var staffCell = document.createElement('div');
         staffCell.className = 'roster-grid-staff';
         staffCell.textContent = staff.name;
+        staffCell.style.gridRow = 'span 2';
         grid.appendChild(staffCell);
+
+        // Lunch row
+        var lunchLabel = document.createElement('div');
+        lunchLabel.className = 'roster-shift-label';
+        lunchLabel.textContent = 'Lunch';
+        grid.appendChild(lunchLabel);
 
         for (var d = 0; d < 7; d++) {
           var cellDate = new Date(currentRosterWeekStart);
@@ -1252,12 +1260,9 @@
 
           var cell = document.createElement('div');
           cell.className = 'roster-cell';
-          cell.dataset.staffId = staff.id;
-          cell.dataset.date = dateKey;
 
-          // Find roster entry for this staff + date
           var entry = rosterEntries.find(function(r) {
-            return r.staff_id === staff.id && r.roster_date === dateKey;
+            return r.staff_id === staff.id && r.roster_date === dateKey && r.shift_type === 'lunch';
           });
 
           if (entry) {
@@ -1265,11 +1270,46 @@
             cell.innerHTML =
               '<span class="roster-time">' + entry.start_time.slice(0, 5) + '–' + entry.end_time.slice(0, 5) + '</span>' +
               (entry.notes ? '<span class="roster-notes">' + escapeHtml(entry.notes) + '</span>' : '');
-            cell.dataset.rosterId = entry.id;
+          } else {
+            cell.innerHTML = '<span class="roster-add">+</span>';
           }
 
           cell.addEventListener('click', function() {
-            openRosterModal(staff, dateKey, entry);
+            openRosterModal(staff, dateKey, 'lunch', entry);
+          });
+
+          grid.appendChild(cell);
+        }
+
+        // Dinner row
+        var dinnerLabel = document.createElement('div');
+        dinnerLabel.className = 'roster-shift-label';
+        dinnerLabel.textContent = 'Dinner';
+        grid.appendChild(dinnerLabel);
+
+        for (var d = 0; d < 7; d++) {
+          var cellDate = new Date(currentRosterWeekStart);
+          cellDate.setDate(cellDate.getDate() + d);
+          var dateKey = formatDateKey(cellDate);
+
+          var cell = document.createElement('div');
+          cell.className = 'roster-cell';
+
+          var entry = rosterEntries.find(function(r) {
+            return r.staff_id === staff.id && r.roster_date === dateKey && r.shift_type === 'dinner';
+          });
+
+          if (entry) {
+            cell.classList.add('roster-cell-scheduled');
+            cell.innerHTML =
+              '<span class="roster-time">' + entry.start_time.slice(0, 5) + '–' + entry.end_time.slice(0, 5) + '</span>' +
+              (entry.notes ? '<span class="roster-notes">' + escapeHtml(entry.notes) + '</span>' : '');
+          } else {
+            cell.innerHTML = '<span class="roster-add">+</span>';
+          }
+
+          cell.addEventListener('click', function() {
+            openRosterModal(staff, dateKey, 'dinner', entry);
           });
 
           grid.appendChild(cell);
@@ -1298,7 +1338,7 @@
    * @param {string} dateKey
    * @param {object|null} entry
    */
-  function openRosterModal(staff, dateKey, entry) {
+  function openRosterModal(staff, dateKey, shiftType, entry) {
     var modal = document.getElementById('roster-modal');
     if (!modal) return;
 
@@ -1308,8 +1348,9 @@
     document.getElementById('roster-start-input').value = entry ? entry.start_time.slice(0, 5) : '';
     document.getElementById('roster-end-input').value = entry ? entry.end_time.slice(0, 5) : '';
     document.getElementById('roster-notes-input').value = entry ? (entry.notes || '') : '';
+    document.getElementById('roster-shift-type-input').value = shiftType;
 
-    document.getElementById('roster-modal-title').textContent = entry ? 'Edit Roster' : 'Add Roster Entry';
+    document.getElementById('roster-modal-title').textContent = (entry ? 'Edit' : 'Add') + ' ' + shiftType.charAt(0).toUpperCase() + shiftType.slice(1) + ' Roster';
     document.getElementById('roster-delete-btn').classList.toggle('hidden', !entry);
 
     modal.classList.remove('hidden');
@@ -1365,14 +1406,14 @@
    * Submit the roster form (create or update).
    * @param {boolean} force — bypass conflict check
    */
-  async function submitRosterForm(force) {
-    force = force || false;
+  async function submitRosterForm() {
     var rosterId = document.getElementById('roster-id').value;
     var staffId = document.getElementById('roster-staff-input').value;
     var date = document.getElementById('roster-date-input').value;
     var start = document.getElementById('roster-start-input').value;
     var end = document.getElementById('roster-end-input').value;
     var notes = document.getElementById('roster-notes-input').value.trim() || null;
+    var shiftType = document.getElementById('roster-shift-type-input').value || 'lunch';
 
     if (!staffId || !date || !start || !end) {
       if (window.ClockApp) window.ClockApp.showToast('Staff, date, start time, and end time are required.', 'error');
@@ -1394,7 +1435,7 @@
           startTime: start,
           endTime: end,
           notes: notes,
-          force: force
+          shiftType: shiftType
         });
         if (window.ClockApp) window.ClockApp.showToast('Roster entry created.', 'success');
       }
@@ -1402,13 +1443,6 @@
       loadAdminRoster();
     } catch (error) {
       var msg = error.message || '';
-      // Check for conflict error
-      if (msg.indexOf('Conflict') !== -1 && !force) {
-        if (window.confirm(msg + '\n\nDo you want to save anyway?')) {
-          return submitRosterForm(true);
-        }
-        return;
-      }
       console.error('Failed to save roster:', error);
       if (window.ClockApp) window.ClockApp.showToast(msg || 'Failed to save roster entry.', 'error');
     }
@@ -1571,6 +1605,7 @@
       '<thead><tr class="bg-gray-100">' +
       '<th class="p-2 text-left">Status</th>' +
       '<th class="p-2 text-left">Name</th>' +
+      '<th class="p-2 text-left">Shift</th>' +
       '<th class="p-2 text-left">Date</th>' +
       '<th class="p-2 text-left">Start</th>' +
       '<th class="p-2 text-left">End</th>' +
@@ -1581,6 +1616,12 @@
     parsed.forEach(function(row, idx) {
       // Try different header name variations
       var name = row.name || row['staff name'] || row.staff || '';
+      var shiftType = row.shift || row['shift type'] || row.shift_type || row.type || 'lunch';
+      if (shiftType.toLowerCase().indexOf('dinner') !== -1 || shiftType.toLowerCase().indexOf('evening') !== -1) {
+        shiftType = 'dinner';
+      } else {
+        shiftType = 'lunch';
+      }
       var date = row.date || row['roster_date'] || row['roster date'] || '';
       var start = row.start || row['start time'] || row.start_time || '';
       var end = row.end || row['end time'] || row.end_time || '';
@@ -1606,6 +1647,7 @@
       tr.innerHTML =
         '<td class="p-2">' + (error ? '❌' : '✅') + '</td>' +
         '<td class="p-2">' + escapeHtml(name) + '</td>' +
+        '<td class="p-2">' + escapeHtml(shiftType) + '</td>' +
         '<td class="p-2">' + escapeHtml(date) + '</td>' +
         '<td class="p-2">' + escapeHtml(start) + '</td>' +
         '<td class="p-2">' + escapeHtml(end) + '</td>' +
@@ -1622,7 +1664,8 @@
           date: date,
           startTime: start,
           endTime: end,
-          notes: notes || null
+          notes: notes || null,
+          shiftType: shiftType
         });
       }
     });
@@ -1668,7 +1711,7 @@
           startTime: row.startTime,
           endTime: row.endTime,
           notes: row.notes,
-          force: true
+          shiftType: row.shiftType || 'lunch'
         });
         success++;
       } catch (err) {
@@ -1682,7 +1725,7 @@
             formatDateKey(weekEnd)
           );
           var entry = existing.find(function(e) {
-            return e.staff_id === row.staffId && e.roster_date === row.date;
+            return e.staff_id === row.staffId && e.roster_date === row.date && e.shift_type === (row.shiftType || 'lunch');
           });
           if (entry) {
             await window.ClockDB.updateRosterEntry(entry.id, {

@@ -1,4 +1,4 @@
-/* Custom styles for Clock On/Off App */
+/* Custom styles for Mucha Kitchen ClockOn App */
 /* Tailwind CSS handles utilities via CDN - this file is for component-specific styles */
 
 /* ===== Base & Layout ===== */
@@ -1104,4 +1104,24 @@ textarea:disabled {
 .admin-tab {
     -webkit-user-select: none;
     user-select: none;
+}
+
+/* ===== Roster Lunch/Diner Styles ===== */
+
+.roster-shift-label {
+    font-size: 0.75rem;
+    color: #64748b;
+    padding: 0.25rem 0.5rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: flex;
+    align-items: center;
+}
+
+.roster-add {
+    color: #94a3b8;
+    font-size: 1.25rem;
+    font-weight: 300;
+    cursor: pointer;
 }

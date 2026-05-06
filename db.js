@@ -1,7 +1,7 @@
 /**
  * db.js - Supabase Client Module (Hardened)
  *
- * Handles all database operations for the Clock On/Off app.
+ * Handles all database operations for the Mucha Kitchen ClockOn app.
  * Uses Supabase free tier with Row-Level Security (RLS).
  *
  * SECURITY MODEL (no Supabase Auth, anon key only):
@@ -619,7 +619,8 @@
       p_roster_date: entry.rosterDate,
       p_start_time: entry.startTime,
       p_end_time: entry.endTime,
-      p_notes: entry.notes || null
+      p_notes: entry.notes || null,
+      p_shift_type: entry.shiftType || 'lunch'
     });
 
     if (result.error) {

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#1e40af">
-    <title>Clock On/Off</title>
+    <title>Mucha Kitchen ClockOn</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -12,13 +12,13 @@
     <!-- Loading State -->
     <div id="app-loading" class="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center">
         <div class="loading-spinner mb-4" style="width: 40px; height: 40px; border: 4px solid #e5e7eb; border-top-color: #1e40af;"></div>
-        <p class="text-gray-600 text-sm">Loading Clock On/Off...</p>
+        <p class="text-gray-600 text-sm">Loading Mucha Kitchen ClockOn...</p>
     </div>
 
     <!-- PIN Entry Screen -->
     <section id="pin-screen" class="min-h-screen flex flex-col items-center justify-center p-4">
         <div class="w-full max-w-sm bg-white rounded-lg shadow-lg p-6">
-            <h1 class="text-2xl font-bold text-center text-gray-800 mb-2">Clock On/Off</h1>
+            <h1 class="text-2xl font-bold text-center text-gray-800 mb-2">Mucha Kitchen ClockOn</h1>
             <p class="text-center text-gray-600 mb-6">Enter your PIN to continue</p>
             
             <div class="pin-display mb-6" id="pin-display">
@@ -55,7 +55,7 @@
         <header class="bg-blue-800 text-white p-4 shadow-md">
             <div class="flex justify-between items-center">
                 <div>
-                    <h1 class="text-xl font-bold">Clock On/Off</h1>
+                    <h1 class="text-xl font-bold">Mucha Kitchen ClockOn</h1>
                     <p id="staff-name" class="text-sm text-blue-200"></p>
                 </div>
                 <button id="logout-btn" class="text-sm bg-blue-700 hover:bg-blue-600 px-3 py-2 rounded">Logout</button>
@@ -285,6 +285,7 @@
             <h2 id="roster-modal-title" class="text-xl font-bold mb-4">Edit Roster</h2>
             <form id="roster-form">
                 <input type="hidden" id="roster-id">
+                <input type="hidden" id="roster-shift-type-input">
                 <div class="mb-4">
                     <label class="block text-sm text-gray-600 mb-1">Staff</label>
                     <select id="roster-staff-input" class="w-full p-3 border border-gray-300 rounded-lg" required>
@@ -294,6 +295,13 @@
                 <div class="mb-4">
                     <label class="block text-sm text-gray-600 mb-1">Date</label>
                     <input type="date" id="roster-date-input" class="w-full p-3 border border-gray-300 rounded-lg" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm text-gray-600 mb-1">Shift</label>
+                    <select id="roster-shift-type-display" class="w-full p-3 border border-gray-300 rounded-lg" disabled>
+                        <option value="lunch">Lunch</option>
+                        <option value="dinner">Dinner</option>
+                    </select>
                 </div>
                 <div class="mb-4 flex gap-3">
                     <div class="flex-1">
@@ -391,10 +399,10 @@ Pem,2026-05-07,17:00,22:00,Closing"></textarea>
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
-    <script src="db.js?v=6"></script>
-    <script src="auth.js?v=6"></script>
-    <script src="app.js?v=6"></script>
-    <script src="admin.js?v=6"></script>
+    <script src="db.js?v=7"></script>
+    <script src="auth.js?v=7"></script>
+    <script src="app.js?v=7"></script>
+    <script src="admin.js?v=7"></script>
     <script>
     (function() {
       'use strict';
