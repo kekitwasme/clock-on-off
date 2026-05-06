@@ -23,6 +23,9 @@
   var customStartDate = null;
   var customEndDate = null;
 
+  // ===== Timesheet View State =====
+  var currentTimesheetView = 'date'; // 'date' | 'staff'
+
   // ===== Admin Panel Access =====
 
   /**
@@ -629,7 +632,11 @@
         return;
       }
 
-      renderTimesheets(currentTimesheets);
+      if (currentTimesheetView === 'staff') {
+        renderTimesheetsByStaff(currentTimesheets);
+      } else {
+        renderTimesheets(currentTimesheets);
+      }
     } catch (error) {
       console.error('Failed to load timesheets:', error);
       timesheetsList.innerHTML = '<p class="text-center text-red-500 py-4">Failed to load timesheets.</p>';
@@ -769,6 +776,8 @@
   function initTimesheetsControls() {
     var staffFilter = document.getElementById('timesheet-staff-filter');
     var exportBtn = document.getElementById('export-csv-btn');
+    var viewDateBtn = document.getElementById('timesheet-view-date');
+    var viewStaffBtn = document.getElementById('timesheet-view-staff');
 
     // Populate staff dropdown once
     (async function() {
@@ -797,6 +806,37 @@
     if (exportBtn) {
       exportBtn.addEventListener('click', exportTimesheetsCSV);
     }
+    if (viewDateBtn) {
+      viewDateBtn.addEventListener('click', function() {
+        currentTimesheetView = 'date';
+        updateViewToggleButtons();
+        renderTimesheets(currentTimesheets);
+      });
+    }
+    if (viewStaffBtn) {
+      viewStaffBtn.addEventListener('click', function() {
+        currentTimesheetView = 'staff';
+        updateViewToggleButtons();
+        renderTimesheetsByStaff(currentTimesheets);
+      });
+    }
+  }
+
+  function updateViewToggleButtons() {
+    var viewDateBtn = document.getElementById('timesheet-view-date');
+    var viewStaffBtn = document.getElementById('timesheet-view-staff');
+    if (viewDateBtn) {
+      viewDateBtn.classList.toggle('bg-blue-600', currentTimesheetView === 'date');
+      viewDateBtn.classList.toggle('bg-gray-200', currentTimesheetView !== 'date');
+      viewDateBtn.classList.toggle('text-white', currentTimesheetView === 'date');
+      viewDateBtn.classList.toggle('text-gray-800', currentTimesheetView !== 'date');
+    }
+    if (viewStaffBtn) {
+      viewStaffBtn.classList.toggle('bg-blue-600', currentTimesheetView === 'staff');
+      viewStaffBtn.classList.toggle('bg-gray-200', currentTimesheetView !== 'staff');
+      viewStaffBtn.classList.toggle('text-white', currentTimesheetView === 'staff');
+      viewStaffBtn.classList.toggle('text-gray-800', currentTimesheetView !== 'staff');
+    }
   }
 
   // ===== Date Filter Helpers (exposed for external use) =====
@@ -818,11 +858,256 @@
     return currentDateFilter;
   }
 
+  // ===== Staff-Centric Timesheet View =====
+
   /**
-   * Export the currently loaded timesheets to CSV and trigger download.
-   * Groups by date with subtotal rows.
+   * Group shifts by staff member for the "By Staff" view.
+   * @param {Array} shifts
+   * @returns {Array} — [{ staff, shifts: [], totalHours, lateCount, earlyCount, missedCount }]
+   */
+  function groupShiftsByStaff(shifts) {
+    var staffMap = {};
+
+    shifts.forEach(function(shift) {
+      var staffId = shift.staff_id || (shift.staff && shift.staff.id);
+      var staffName = shift.staff && shift.staff.name ? shift.staff.name : 'Unknown';
+      if (!staffId) return;
+
+      if (!staffMap[staffId]) {
+        staffMap[staffId] = {
+          staff: shift.staff || { id: staffId, name: staffName },
+          shifts: [],
+          totalMinutes: 0,
+          adjustedCount: 0,
+          lateCount: 0,
+          earlyCount: 0
+        };
+      }
+
+      staffMap[staffId].shifts.push(shift);
+
+      if (shift.clock_out) {
+        var mins = Math.round(window.ClockDB.calculateDuration(shift.clock_in, shift.clock_out) / 60000);
+        staffMap[staffId].totalMinutes += mins;
+      }
+
+      if (shift.clock_in_adjusted || shift.clock_out_adjusted) {
+        staffMap[staffId].adjustedCount++;
+      }
+
+      // Check late/early
+      if (shift.staff && !shift.clock_out) return; // skip active shifts
+      var expectedStart = shift.staff && shift.staff.expected_start_time;
+      var expectedEnd = shift.staff && shift.staff.expected_end_time;
+      if (expectedStart) {
+        var startAlert = checkLateEarlyForShift(shift.clock_in, expectedStart);
+        if (startAlert) {
+          if (startAlert.critical) staffMap[staffId].lateCount++;
+        }
+      }
+      if (expectedEnd && shift.clock_out) {
+        var endAlert = checkLateEarlyForShift(shift.clock_out, expectedEnd);
+        if (endAlert) {
+          if (endAlert.critical) staffMap[staffId].earlyCount++;
+        }
+      }
+    });
+
+    return Object.values(staffMap).sort(function(a, b) {
+      return a.staff.name.localeCompare(b.staff.name);
+    });
+  }
+
+  /**
+   * Render timesheets grouped by staff member.
+   * @param {Array} shifts
+   */
+  function renderTimesheetsByStaff(shifts) {
+    var timesheetsList = document.getElementById('timesheets-list');
+    var payrollDiv = document.getElementById('payroll-summary');
+    var payrollContent = document.getElementById('payroll-summary-content');
+    if (!timesheetsList) return;
+    timesheetsList.innerHTML = '';
+
+    if (payrollDiv) payrollDiv.classList.remove('hidden');
+
+    var grouped = groupShiftsByStaff(shifts);
+
+    if (grouped.length === 0) {
+      timesheetsList.innerHTML = '<p class="text-center text-gray-500 py-4">No shifts found.</p>';
+      if (payrollDiv) payrollDiv.classList.add('hidden');
+      return;
+    }
+
+    // Build payroll summary table
+    if (payrollContent) {
+      var table = document.createElement('table');
+      table.className = 'w-full text-sm';
+      table.innerHTML =
+        '<thead><tr class="bg-gray-100">' +
+        '<th class="p-2 text-left">Staff</th>' +
+        '<th class="p-2 text-right">Total Hrs</th>' +
+        '<th class="p-2 text-right">Late</th>' +
+        '<th class="p-2 text-right">Early</th>' +
+        '<th class="p-2 text-right">Adjusted</th>' +
+        '<th class="p-2 text-right">Shifts</th>' +
+        '</tr></thead>';
+      var tbody = document.createElement('tbody');
+      grouped.forEach(function(group) {
+        var hours = (group.totalMinutes / 60).toFixed(1);
+        var tr = document.createElement('tr');
+        tr.className = 'border-b';
+        tr.innerHTML =
+          '<td class="p-2 font-semibold">' + escapeHtml(group.staff.name) + '</td>' +
+          '<td class="p-2 text-right">' + hours + '</td>' +
+          '<td class="p-2 text-right ' + (group.lateCount > 0 ? 'text-orange-600' : 'text-gray-400') + '"'>' + group.lateCount + '</td>' +
+          '<td class="p-2 text-right ' + (group.earlyCount > 0 ? 'text-orange-600' : 'text-gray-400') + '"'>' + group.earlyCount + '</td>' +
+          '<td class="p-2 text-right ' + (group.adjustedCount > 0 ? 'text-blue-600' : 'text-gray-400') + '"'>' + group.adjustedCount + '</td>' +
+          '<td class="p-2 text-right">' + group.shifts.length + '</td>';
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      payrollContent.innerHTML = '';
+      payrollContent.appendChild(table);
+    }
+
+    // Build staff cards
+    grouped.forEach(function(group) {
+      var card = document.createElement('div');
+      card.className = 'staff-timesheet-card';
+
+      var hours = (group.totalMinutes / 60).toFixed(1);
+      var badges = [];
+      if (group.lateCount > 0) badges.push('<span class="badge-late">⚠️ ' + group.lateCount + ' late</span>');
+      if (group.earlyCount > 0) badges.push('<span class="badge-early">🚪 ' + group.earlyCount + ' early</span>');
+      if (group.adjustedCount > 0) badges.push('<span class="badge-adjusted">📝 ' + group.adjustedCount + ' adjusted</span>');
+
+      card.innerHTML =
+        '<div class="staff-timesheet-header">' +
+          '<div class="staff-timesheet-name">' + escapeHtml(group.staff.name) + '</div>' +
+          '<div class="staff-timesheet-total">' + hours + ' hrs</div>' +
+        '</div>' +
+        '<div class="staff-timesheet-badges">' + badges.join('') + '</div>';
+
+      // Build shift table
+      var table = document.createElement('table');
+      table.className = 'staff-timesheet-table';
+      table.innerHTML =
+        '<thead><tr>' +
+        '<th>Date</th><th>Clock In</th><th>Clock Out</th><th>Duration</th><th>Status</th><th></th>' +
+        '</tr></thead>';
+      var tbody = document.createElement('tbody');
+
+      // Sort shifts by date
+      group.shifts.sort(function(a, b) {
+        return new Date(a.clock_in) - new Date(b.clock_in);
+      });
+
+      group.shifts.forEach(function(shift) {
+        var dateStr = window.ClockDB.formatDate(shift.clock_in);
+        var clockInStr = window.ClockDB.formatTime(shift.clock_in);
+        var clockOutStr = shift.clock_out ? window.ClockDB.formatTime(shift.clock_out) : '--';
+        var duration = shift.clock_out
+          ? window.ClockDB.formatDuration(window.ClockDB.calculateDuration(shift.clock_in, shift.clock_out))
+          : 'Active';
+
+        // Determine status
+        var status = '<span class="status-ok">✅</span>';
+        if (!shift.clock_out) {
+          status = '<span class="status-active">🟢 Active</span>';
+        } else if (shift.clock_in_adjusted || shift.clock_out_adjusted) {
+          status = '<span class="status-adjusted">📝 Adj</span>';
+        } else {
+          var startAlert = checkLateEarlyForShift(shift.clock_in, shift.staff && shift.staff.expected_start_time);
+          var endAlert = shift.clock_out ? checkLateEarlyForShift(shift.clock_out, shift.staff && shift.staff.expected_end_time) : null;
+          if (startAlert && startAlert.critical) status = '<span class="status-late">⚠️ Late</span>';
+          else if (endAlert && endAlert.critical) status = '<span class="status-early">🚪 Early</span>';
+        }
+
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td>' + dateStr + '</td>' +
+          '<td>' + clockInStr + '</td>' +
+          '<td>' + clockOutStr + '</td>' +
+          '<td>' + duration + '</td>' +
+          '<td>' + status + '</td>' +
+          '<td><button class="btn-edit-sm" data-shift-id="' + shift.id + '"">✏️</button></td>';
+
+        var editBtn = tr.querySelector('.btn-edit-sm');
+        if (editBtn) {
+          editBtn.addEventListener('click', function() {
+            openShiftModal(shift);
+          });
+        }
+
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(tbody);
+      card.appendChild(table);
+      timesheetsList.appendChild(card);
+    });
+  }
+
+  // ===== Payroll Export =====
+
+  /**
+   * Export timesheets in payroll-friendly format (staff summary).
+   */
+  function exportTimesheetsPayrollCSV() {
+    if (!currentTimesheets || currentTimesheets.length === 0) {
+      if (window.ClockApp) window.ClockApp.showToast('No timesheets to export.', 'error');
+      return;
+    }
+
+    var grouped = groupShiftsByStaff(currentTimesheets);
+
+    var headers = ['Staff', 'Total_Hours', 'Late_Count', 'Early_Count', 'Adjusted_Count', 'Shift_Count'];
+    var csvLines = [headers.join(',')];
+
+    grouped.forEach(function(group) {
+      var hours = (group.totalMinutes / 60).toFixed(1);
+      csvLines.push([
+        group.staff.name,
+        hours,
+        group.lateCount,
+        group.earlyCount,
+        group.adjustedCount,
+        group.shifts.length
+      ].map(window.ClockDB.csvEscape).join(','));
+    });
+
+    var csvContent = csvLines.join('\r\n');
+    var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = 'payroll_summary_' + new Date().toISOString().split('T')[0] + '.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    if (window.ClockApp) {
+      window.ClockApp.showToast('Exported payroll summary for ' + grouped.length + ' staff.', 'success');
+    }
+  }
+
+  /**
+   * Export timesheets — asks which format.
    */
   function exportTimesheetsCSV() {
+    if (currentTimesheetView === 'staff') {
+      exportTimesheetsPayrollCSV();
+    } else {
+      exportTimesheetsDetailCSV();
+    }
+  }
+
+  /**
+   * Export detailed timesheets (by date) to CSV.
+   */
+  function exportTimesheetsDetailCSV() {
     if (!currentTimesheets || currentTimesheets.length === 0) {
       if (window.ClockApp) window.ClockApp.showToast('No timesheets to export.', 'error');
       return;
