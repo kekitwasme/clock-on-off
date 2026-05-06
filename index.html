@@ -210,7 +210,8 @@
                     <span id="roster-week-label" class="text-sm font-semibold text-gray-700"></span>
                     <button id="roster-next-week" class="bg-gray-200 text-gray-800 px-3 py-2 rounded text-sm font-semibold hover:bg-gray-300">Next →</button>
                 </div>
-                <button id="roster-current-week" class="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold mb-4 hover:bg-blue-700 text-sm">Current Week</button>
+                <button id="roster-current-week" class="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold mb-2 hover:bg-blue-700 text-sm">Current Week</button>
+                <button id="roster-import-btn" class="w-full bg-green-600 text-white py-2 rounded-lg font-semibold mb-4 hover:bg-green-700 text-sm">📥 Import from CSV / Google Sheets</button>
                 <div id="roster-grid-container">
                     <!-- Roster grid rendered here -->
                 </div>
@@ -349,6 +350,38 @@
                     <button type="submit" class="flex-1 py-3 bg-blue-600 text-white rounded-lg font-semibold">Save</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Roster Import Modal -->
+    <div id="roster-import-modal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content max-w-lg">
+            <h2 class="text-xl font-bold mb-4">Import Roster from CSV</h2>
+            <p class="text-sm text-gray-600 mb-3">
+                Export your Google Sheet as CSV and upload it here.
+                <a href="https://docs.google.com/spreadsheets/d/1roster-template-example/create?usp=sharing" target="_blank" class="text-blue-600 underline">Get template</a>
+            </p>
+            <div class="mb-4">
+                <label class="block text-sm text-gray-600 mb-1">CSV File</label>
+                <input type="file" id="roster-import-file" accept=".csv" class="w-full p-3 border border-gray-300 rounded-lg">
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm text-gray-600 mb-1">Or paste CSV data here</label>
+                <textarea id="roster-import-text" class="w-full p-3 border border-gray-300 rounded-lg font-mono text-xs" rows="6" placeholder="Name,Date,Start,End,Notes
+Admin,2026-05-07,09:00,17:00,Opening
+Pem,2026-05-07,17:00,22:00,Closing"></textarea>
+            </div>
+            <div id="roster-import-preview" class="hidden mb-4">
+                <p class="text-sm font-semibold mb-2">Preview:</p>
+                <div id="roster-import-preview-content" class="max-h-40 overflow-y-auto border border-gray-200 rounded-lg"></div>
+            </div>
+            <div id="roster-import-summary" class="hidden mb-4 p-3 rounded-lg"></div>
+            <div class="flex gap-3">
+                <button type="button" id="roster-import-cancel" class="flex-1 py-3 bg-gray-200 text-gray-800 rounded-lg font-semibold">Cancel</button>
+                <button type="button" id="roster-import-preview-btn" class="flex-1 py-3 bg-blue-600 text-white rounded-lg font-semibold">Preview</button>
+                <button type="button" id="roster-import-submit" class="flex-1 py-3 bg-green-600 text-white rounded-lg font-semibold hidden">Import</button>
+            </div>
         </div>
     </div>
 

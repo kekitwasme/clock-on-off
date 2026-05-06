@@ -1421,6 +1421,7 @@
     var prevBtn = document.getElementById('roster-prev-week');
     var nextBtn = document.getElementById('roster-next-week');
     var currentBtn = document.getElementById('roster-current-week');
+    var importBtn = document.getElementById('roster-import-btn');
 
     if (prevBtn) {
       prevBtn.addEventListener('click', function() {
@@ -1439,6 +1440,285 @@
         currentRosterWeekStart = getWeekStart(new Date());
         loadAdminRoster();
       });
+    }
+    if (importBtn) {
+      importBtn.addEventListener('click', function() {
+        openRosterImportModal();
+      });
+    }
+
+    initRosterImportModal();
+  }
+
+  // ===== Roster CSV Import =====
+
+  var rosterImportData = []; // Parsed CSV rows ready for import
+
+  function openRosterImportModal() {
+    var modal = document.getElementById('roster-import-modal');
+    if (!modal) return;
+
+    // Reset form
+    document.getElementById('roster-import-file').value = '';
+    document.getElementById('roster-import-text').value = '';
+    document.getElementById('roster-import-preview').classList.add('hidden');
+    document.getElementById('roster-import-summary').classList.add('hidden');
+    document.getElementById('roster-import-preview-btn').classList.remove('hidden');
+    document.getElementById('roster-import-submit').classList.add('hidden');
+    rosterImportData = [];
+
+    modal.classList.remove('hidden');
+  }
+
+  function initRosterImportModal() {
+    var cancelBtn = document.getElementById('roster-import-cancel');
+    var previewBtn = document.getElementById('roster-import-preview-btn');
+    var submitBtn = document.getElementById('roster-import-submit');
+    var overlay = document.querySelector('#roster-import-modal .modal-overlay');
+    var fileInput = document.getElementById('roster-import-file');
+
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', function() {
+        document.getElementById('roster-import-modal').classList.add('hidden');
+      });
+    }
+    if (overlay) {
+      overlay.addEventListener('click', function() {
+        document.getElementById('roster-import-modal').classList.add('hidden');
+      });
+    }
+    if (previewBtn) {
+      previewBtn.addEventListener('click', function() {
+        previewRosterImport();
+      });
+    }
+    if (submitBtn) {
+      submitBtn.addEventListener('click', function() {
+        submitRosterImport();
+      });
+    }
+    if (fileInput) {
+      fileInput.addEventListener('change', function(e) {
+        if (e.target.files && e.target.files[0]) {
+          var reader = new FileReader();
+          reader.onload = function(evt) {
+            document.getElementById('roster-import-text').value = evt.target.result;
+          };
+          reader.readAsText(e.target.files[0]);
+        }
+      });
+    }
+  }
+
+  function parseCSV(text) {
+    var lines = text.trim().split(/\r?\n/);
+    if (lines.length < 2) return [];
+
+    var headers = lines[0].split(',').map(function(h) { return h.trim().toLowerCase(); });
+    var rows = [];
+
+    for (var i = 1; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (!line) continue;
+
+      // Simple CSV parsing (handles basic commas, not quoted fields with commas)
+      var cells = line.split(',').map(function(c) { return c.trim(); });
+      if (cells.length < 4) continue; // Need at least Name, Date, Start, End
+
+      var row = {};
+      for (var j = 0; j < headers.length && j < cells.length; j++) {
+        row[headers[j]] = cells[j];
+      }
+      rows.push(row);
+    }
+
+    return rows;
+  }
+
+  async function previewRosterImport() {
+    var text = document.getElementById('roster-import-text').value.trim();
+    if (!text) {
+      if (window.ClockApp) window.ClockApp.showToast('Please paste or upload CSV data.', 'error');
+      return;
+    }
+
+    var parsed = parseCSV(text);
+    if (parsed.length === 0) {
+      if (window.ClockApp) window.ClockApp.showToast('No valid rows found in CSV.', 'error');
+      return;
+    }
+
+    // Get staff list for name matching
+    var staffList = [];
+    try {
+      staffList = await window.ClockDB.getAllStaff();
+    } catch (err) {
+      console.error('Failed to load staff:', err);
+    }
+
+    var previewDiv = document.getElementById('roster-import-preview-content');
+    var summaryDiv = document.getElementById('roster-import-summary');
+    previewDiv.innerHTML = '';
+
+    rosterImportData = [];
+    var valid = 0;
+    var invalid = 0;
+    var errors = [];
+
+    var table = document.createElement('table');
+    table.className = 'w-full text-sm';
+    table.innerHTML =
+      '<thead><tr class="bg-gray-100">' +
+      '<th class="p-2 text-left">Status</th>' +
+      '<th class="p-2 text-left">Name</th>' +
+      '<th class="p-2 text-left">Date</th>' +
+      '<th class="p-2 text-left">Start</th>' +
+      '<th class="p-2 text-left">End</th>' +
+      '<th class="p-2 text-left">Notes</th>' +
+      '</tr></thead>';
+    var tbody = document.createElement('tbody');
+
+    parsed.forEach(function(row, idx) {
+      // Try different header name variations
+      var name = row.name || row['staff name'] || row.staff || '';
+      var date = row.date || row['roster_date'] || row['roster date'] || '';
+      var start = row.start || row['start time'] || row.start_time || '';
+      var end = row.end || row['end time'] || row.end_time || '';
+      var notes = row.notes || row.note || '';
+
+      var staff = staffList.find(function(s) {
+        return s.name.toLowerCase() === name.toLowerCase();
+      });
+
+      var error = null;
+      if (!name) error = 'Missing name';
+      else if (!staff) error = 'Staff not found: ' + name;
+      else if (!date) error = 'Missing date';
+      else if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) error = 'Invalid date format (use YYYY-MM-DD)';
+      else if (!start) error = 'Missing start time';
+      else if (!/^\d{2}:\d{2}$/.test(start)) error = 'Invalid start time (use HH:MM)';
+      else if (!end) error = 'Missing end time';
+      else if (!/^\d{2}:\d{2}$/.test(end)) error = 'Invalid end time (use HH:MM)';
+      else if (start >= end) error = 'Start time must be before end time';
+
+      var tr = document.createElement('tr');
+      tr.className = error ? 'bg-red-50' : 'bg-green-50';
+      tr.innerHTML =
+        '<td class="p-2">' + (error ? '❌' : '✅') + '</td>' +
+        '<td class="p-2">' + escapeHtml(name) + '</td>' +
+        '<td class="p-2">' + escapeHtml(date) + '</td>' +
+        '<td class="p-2">' + escapeHtml(start) + '</td>' +
+        '<td class="p-2">' + escapeHtml(end) + '</td>' +
+        '<td class="p-2 text-xs text-gray-500">' + (error ? escapeHtml(error) : escapeHtml(notes)) + '</td>';
+      tbody.appendChild(tr);
+
+      if (error) {
+        invalid++;
+        errors.push('Row ' + (idx + 1) + ': ' + error);
+      } else {
+        valid++;
+        rosterImportData.push({
+          staffId: staff.id,
+          date: date,
+          startTime: start,
+          endTime: end,
+          notes: notes || null
+        });
+      }
+    });
+
+    table.appendChild(tbody);
+    previewDiv.appendChild(table);
+
+    document.getElementById('roster-import-preview').classList.remove('hidden');
+
+    summaryDiv.classList.remove('hidden');
+    if (invalid === 0) {
+      summaryDiv.className = 'mb-4 p-3 rounded-lg bg-green-100 text-green-800';
+      summaryDiv.textContent = '✅ All ' + valid + ' rows valid. Ready to import.';
+      document.getElementById('roster-import-preview-btn').classList.add('hidden');
+      document.getElementById('roster-import-submit').classList.remove('hidden');
+    } else {
+      summaryDiv.className = 'mb-4 p-3 rounded-lg bg-red-100 text-red-800';
+      summaryDiv.innerHTML = '❌ ' + valid + ' valid, ' + invalid + ' invalid. Fix errors and preview again.' +
+        '<div class="mt-2 text-xs">' + errors.slice(0, 5).map(function(e) { return '<div>' + escapeHtml(e) + '</div>'; }).join('') +
+        (errors.length > 5 ? '<div>...and ' + (errors.length - 5) + ' more</div>' : '') + '</div>';
+    }
+  }
+
+  async function submitRosterImport() {
+    if (rosterImportData.length === 0) {
+      if (window.ClockApp) window.ClockApp.showToast('No valid rows to import.', 'error');
+      return;
+    }
+
+    var submitBtn = document.getElementById('roster-import-submit');
+    if (submitBtn) submitBtn.disabled = true;
+
+    var success = 0;
+    var failed = 0;
+    var errors = [];
+
+    for (var i = 0; i < rosterImportData.length; i++) {
+      var row = rosterImportData[i];
+      try {
+        await window.ClockDB.createRosterEntry({
+          staffId: row.staffId,
+          rosterDate: row.date,
+          startTime: row.startTime,
+          endTime: row.endTime,
+          notes: row.notes,
+          force: true
+        });
+        success++;
+      } catch (err) {
+        // If it already exists, try updating
+        try {
+          var weekStart = getWeekStart(new Date(row.date));
+          var weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekEnd.getDate() + 6);
+          var existing = await window.ClockDB.getRosterForWeek(
+            formatDateKey(weekStart),
+            formatDateKey(weekEnd)
+          );
+          var entry = existing.find(function(e) {
+            return e.staff_id === row.staffId && e.roster_date === row.date;
+          });
+          if (entry) {
+            await window.ClockDB.updateRosterEntry(entry.id, {
+              startTime: row.startTime,
+              endTime: row.endTime,
+              notes: row.notes
+            });
+            success++;
+          } else {
+            failed++;
+            errors.push('Row ' + (i + 1) + ': ' + (err.message || 'Failed'));
+          }
+        } catch (updateErr) {
+          failed++;
+          errors.push('Row ' + (i + 1) + ': ' + (err.message || 'Failed'));
+        }
+      }
+    }
+
+    if (submitBtn) submitBtn.disabled = false;
+
+    var summaryDiv = document.getElementById('roster-import-summary');
+    summaryDiv.classList.remove('hidden');
+    if (failed === 0) {
+      summaryDiv.className = 'mb-4 p-3 rounded-lg bg-green-100 text-green-800';
+      summaryDiv.textContent = '✅ Imported ' + success + ' roster entries successfully!';
+      if (window.ClockApp) window.ClockApp.showToast('Roster imported: ' + success + ' entries.', 'success');
+      setTimeout(function() {
+        document.getElementById('roster-import-modal').classList.add('hidden');
+        loadAdminRoster();
+      }, 1500);
+    } else {
+      summaryDiv.className = 'mb-4 p-3 rounded-lg bg-yellow-100 text-yellow-800';
+      summaryDiv.innerHTML = '⚠️ ' + success + ' imported, ' + failed + ' failed.' +
+        '<div class="mt-2 text-xs">' + errors.slice(0, 3).map(function(e) { return '<div>' + escapeHtml(e) + '</div>'; }).join('') + '</div>';
+      if (window.ClockApp) window.ClockApp.showToast('Import partial: ' + success + ' ok, ' + failed + ' failed.', 'warning');
     }
   }
 
