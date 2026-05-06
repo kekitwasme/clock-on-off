@@ -228,7 +228,7 @@ Chromium on this host runs with `--remote-debugging-port=9222`. Use the browser 
 - No unnecessary complexity — if it can be done simply, do it simply
 - Values practical payroll/admin utility over fancy features
 - Sees the app as a tool that "just works" — reliability matters
-- PIN: `REDACTED`, role: admin
+- PIN: `[REDACTED — see local config]`, role: admin
 
 ---
 
