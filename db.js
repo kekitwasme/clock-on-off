@@ -619,8 +619,7 @@
       p_roster_date: entry.rosterDate,
       p_start_time: entry.startTime,
       p_end_time: entry.endTime,
-      p_notes: entry.notes || null,
-      p_force: entry.force || false
+      p_notes: entry.notes || null
     });
 
     if (result.error) {
