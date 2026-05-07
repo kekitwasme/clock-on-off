@@ -599,6 +599,15 @@ nav {
     transform: scale(0.97);
 }
 
+.admin-tab-content {
+    min-height: 300px;
+}
+
+.view-toggle {
+    transition: all 0.15s ease;
+    touch-action: manipulation;
+}
+
 /* ===== Buttons ===== */
 button {
     min-height: 44px; /* iOS touch target guideline */
@@ -900,6 +909,193 @@ textarea:disabled {
 .late-badge-critical, .early-badge-critical {
     background: #fee2e2;
     color: #991b1b;
+}
+
+/* ===== Staff Timesheet Card & Table (By Staff View) ===== */
+
+.staff-timesheet-card {
+    background: white;
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    margin-bottom: 1rem;
+}
+
+.staff-timesheet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.staff-timesheet-name {
+    font-weight: 700;
+    font-size: 1rem;
+    color: #1e293b;
+}
+
+.staff-timesheet-total {
+    font-weight: 700;
+    font-size: 0.9375rem;
+    color: #3b82f6;
+    font-variant-numeric: tabular-nums;
+}
+
+.staff-timesheet-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.badge-late,
+.badge-early,
+.badge-adjusted {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.badge-late {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.badge-early {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.badge-adjusted {
+    background: #ede9fe;
+    color: #5b21b6;
+}
+
+.staff-timesheet-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+}
+
+.staff-timesheet-table thead th {
+    background: #f8fafc;
+    color: #475569;
+    font-weight: 600;
+    text-align: left;
+    padding: 0.5rem;
+    border-bottom: 2px solid #e2e8f0;
+    white-space: nowrap;
+}
+
+.staff-timesheet-table tbody td {
+    padding: 0.5rem;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+    vertical-align: middle;
+}
+
+.staff-timesheet-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.staff-timesheet-table tbody tr:hover {
+    background: #f8fafc;
+}
+
+.btn-edit-sm {
+    background: #f3f4f6;
+    color: #1f2937;
+    border: none;
+    border-radius: 8px;
+    min-height: 32px;
+    min-width: 32px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+}
+
+.btn-edit-sm:active {
+    background: #e5e7eb;
+    transform: scale(0.96);
+}
+
+.status-ok {
+    color: #16a34a;
+    font-weight: 500;
+}
+
+.status-active {
+    color: #16a34a;
+    font-weight: 600;
+}
+
+.status-adjusted {
+    color: #7c3aed;
+    font-weight: 500;
+}
+
+.status-late {
+    color: #d97706;
+    font-weight: 500;
+}
+
+.status-early {
+    color: #2563eb;
+    font-weight: 500;
+}
+
+.btn-unlock {
+    background: #fef3c7;
+    color: #92400e;
+    border: none;
+    border-radius: 10px;
+    min-height: 44px;
+    min-width: 44px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-unlock:active {
+    background: #fde68a;
+}
+
+/* ===== Payroll Summary Table ===== */
+
+.payroll-table,
+#payroll-summary-content table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+}
+
+#payroll-summary-content thead th {
+    background: #f1f5f9;
+    color: #475569;
+    font-weight: 600;
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+#payroll-summary-content tbody td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+}
+
+#payroll-summary-content tbody tr:hover {
+    background: #f8fafc;
 }
 
 /* ===== Feature Update: Daily Shift Grouping ===== */
