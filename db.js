@@ -658,7 +658,7 @@
   async function deleteRosterEntry(rosterId) {
     var client = getClient();
     var result = await client.rpc('delete_roster_entry', {
-      p_roster_id: rosterId
+      p_id: rosterId
     });
 
     if (result.error) {

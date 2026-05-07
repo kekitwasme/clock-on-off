@@ -12,7 +12,7 @@
   var currentTimesheets = [];
   var isLoading = false;
   var currentView = 'date'; // 'date' | 'staff'
-  var currentDateFilter = 'last7';
+  var currentDateFilter = 'thisweek';
   var customStartDate = null;
   var customEndDate = null;
 
@@ -59,7 +59,7 @@
 
   /**
    * Set the date filter programmatically.
-   * @param {string} filter - 'today' | 'yesterday' | 'last7' | 'last30' | 'custom'
+   * @param {string} filter - 'today' | 'yesterday' | 'thisweek' | 'last7' | 'last30' | 'custom'
    */
   function setDateFilter(filter) {
     currentDateFilter = filter;
@@ -490,6 +490,15 @@
         start.setDate(start.getDate() - 1);
         end.setDate(end.getDate() - 1);
         break;
+      case 'thisweek':
+        var dayOfWeek = start.getDay();
+        var mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        start.setDate(start.getDate() + mondayOffset);
+        start.setHours(0, 0, 0, 0);
+        var sundayOffset = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+        end.setDate(end.getDate() + sundayOffset);
+        end.setHours(23, 59, 59, 999);
+        break;
       case 'last7':
         start.setDate(start.getDate() - 6);
         break;
@@ -540,6 +549,7 @@
     var pills = [
       { key: 'today', label: 'Today' },
       { key: 'yesterday', label: 'Yesterday' },
+      { key: 'thisweek', label: 'This Week' },
       { key: 'last7', label: 'Last 7 days' },
       { key: 'last30', label: 'Last 30 days' },
       { key: 'custom', label: 'Custom' }
