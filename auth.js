@@ -407,6 +407,7 @@
       if (pinError) pinError.classList.add('hidden');
       var selector = document.getElementById('staff-selector');
       if (selector) selector.selectedIndex = 0;
+      loadStaffSelector();
     }, 50);
 
     window.dispatchEvent(new CustomEvent('session:logout'));
