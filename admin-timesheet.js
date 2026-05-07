@@ -11,7 +11,7 @@
   // ===== State =====
   var currentTimesheets = [];
   var isLoading = false;
-  var currentView = 'date'; // 'date' | 'staff'
+  var currentView = 'staff'; // 'date' | 'staff'
   var currentDateFilter = 'thisweek';
   var customStartDate = null;
   var customEndDate = null;
