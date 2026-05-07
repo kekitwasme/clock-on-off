@@ -19,7 +19,16 @@
     <section id="pin-screen" class="min-h-screen flex flex-col items-center justify-center p-4">
         <div class="w-full max-w-sm bg-white rounded-lg shadow-lg p-6">
             <h1 class="text-2xl font-bold text-center text-gray-800 mb-2">Mucha Kitchen ClockOn</h1>
-            <p class="text-center text-gray-600 mb-6">Enter your PIN to continue</p>
+
+            <!-- Staff Selector -->
+            <div class="mb-4" id="staff-selector-container">
+                <label class="block text-sm text-gray-600 mb-1">Who are you?</label>
+                <select id="staff-selector" class="w-full p-3 border border-gray-300 rounded-lg text-gray-800 bg-white">
+                    <option value="">Select your name...</option>
+                </select>
+            </div>
+
+            <p class="text-center text-gray-600 mb-6">Enter your PIN</p>
             
             <div class="pin-display mb-6" id="pin-display">
                 <div class="pin-dot"></div>
@@ -406,12 +415,12 @@ Pem,2026-05-07,17:00,22:00,Closing"></textarea>
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
-    <script src="db.js?v=16"></script>
-    <script src="auth.js?v=16"></script>
-    <script src="app.js?v=16"></script>
-    <script src="admin-timesheet.js?v=16"></script>
-    <script src="admin-roster.js?v=16"></script>
-    <script src="admin.js?v=16"></script>
+    <script src="db.js?v=17"></script>
+    <script src="auth.js?v=17"></script>
+    <script src="app.js?v=17"></script>
+    <script src="admin-timesheet.js?v=17"></script>
+    <script src="admin-roster.js?v=17"></script>
+    <script src="admin.js?v=17"></script>
     <script>
     (function() {
       'use strict';

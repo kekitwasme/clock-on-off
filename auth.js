@@ -15,57 +15,56 @@
 
   // ===== PIN Entry UI =====
 
+  var pinState = { pin: '', isSubmitting: false };
+
   function initPinScreen() {
     var pinDisplay = document.getElementById('pin-display');
     var pinError = document.getElementById('pin-error');
     var pinEnter = document.getElementById('pin-enter');
     var pinClear = document.getElementById('pin-clear');
 
-    var pin = '';
-    var isSubmitting = false;
-
     function updateDisplay() {
       var dots = pinDisplay.querySelectorAll('.pin-dot');
       dots.forEach(function(dot, index) {
-        if (index < pin.length) {
+        if (index < pinState.pin.length) {
           dot.classList.add('filled');
         } else {
           dot.classList.remove('filled');
         }
       });
-      var canSubmit = pin.length >= 4 && pin.length <= 6;
+      var canSubmit = pinState.pin.length >= 4 && pinState.pin.length <= 6;
       pinEnter.disabled = !canSubmit;
       pinEnter.style.opacity = canSubmit ? '1' : '0.5';
     }
 
     function clearPin() {
-      pin = '';
+      pinState.pin = '';
+      pinState.isSubmitting = false;
       updateDisplay();
       pinError.classList.add('hidden');
-      isSubmitting = false;
     }
 
     function handleDigit(digit) {
-      if (isSubmitting) return;
-      if (pin.length >= 6) return;
-      pin += digit;
+      if (pinState.isSubmitting) return;
+      if (pinState.pin.length >= 6) return;
+      pinState.pin += digit;
       updateDisplay();
       pinError.classList.add('hidden');
-      if (pin.length === 6) {
-        submitPin(pin);
+      if (pinState.pin.length === 6) {
+        submitPin(pinState.pin);
       }
     }
 
     function handleBackspace() {
-      if (isSubmitting) return;
-      pin = pin.slice(0, -1);
+      if (pinState.isSubmitting) return;
+      pinState.pin = pinState.pin.slice(0, -1);
       updateDisplay();
     }
 
     function handleEnter() {
-      if (isSubmitting) return;
-      if (pin.length >= 4 && pin.length <= 6) {
-        submitPin(pin);
+      if (pinState.isSubmitting) return;
+      if (pinState.pin.length >= 4 && pinState.pin.length <= 6) {
+        submitPin(pinState.pin);
       }
     }
 
@@ -111,11 +110,46 @@
     updateDisplay();
   }
 
+  // ===== Staff Selector =====
+
+  async function loadStaffSelector() {
+    var selector = document.getElementById('staff-selector');
+    if (!selector) return;
+
+    try {
+      var staffList = await window.ClockDB.getAllStaff();
+      var activeStaff = staffList.filter(function(s) { return s.active; });
+
+      // Clear existing options except the placeholder
+      while (selector.options.length > 1) {
+        selector.remove(1);
+      }
+
+      activeStaff.forEach(function(staff) {
+        var option = document.createElement('option');
+        option.value = staff.id;
+        option.textContent = staff.name;
+        selector.appendChild(option);
+      });
+    } catch (err) {
+      console.warn('Failed to load staff list for selector:', err.message);
+    }
+  }
+
   // ===== PIN Submission =====
 
   async function submitPin(pin) {
     if (!window.ClockDB) {
       showPinError('System not ready. Please refresh.');
+      return;
+    }
+
+    // Check staff selector
+    var selector = document.getElementById('staff-selector');
+    var selectedStaffId = selector ? selector.value : '';
+
+    if (!selectedStaffId) {
+      showPinError('Please select your name first.');
       return;
     }
 
@@ -137,6 +171,22 @@
 
       var staff = result.staff;
       var token = result.token;
+
+      // Verify selected staff matches authenticated staff
+      if (staff.id !== selectedStaffId) {
+        // Wrong person — PIN belongs to a different staff member
+        pinState.pin = '';
+        pinState.isSubmitting = false;
+        var dots = pinDisplay.querySelectorAll('.pin-dot');
+        dots.forEach(function(dot) { dot.classList.remove('filled'); });
+        pinEnter.disabled = true;
+        pinEnter.style.opacity = '0.5';
+
+        pinError.textContent = 'That PIN doesn\'t match the selected name. Try again.';
+        pinError.className = 'text-red-600 text-center text-sm mt-2';
+        pinError.classList.remove('hidden');
+        return;
+      }
 
       if (!staff.active) {
         pinError.textContent = 'Account deactivated. Contact your manager.';
@@ -167,10 +217,32 @@
       pinError.className = 'text-red-600 text-center text-sm mt-2';
       pinError.classList.remove('hidden');
 
-      // Clear after delay
+      // Clear PIN after delay
       setTimeout(function() {
-        document.getElementById('pin-clear').click();
+        pinState.pin = '';
+        pinState.isSubmitting = false;
+        updatePinDisplay();
+        pinError.classList.add('hidden');
       }, 1200);
+    }
+  }
+
+  function updatePinDisplay() {
+    var pinDisplay = document.getElementById('pin-display');
+    var pinEnter = document.getElementById('pin-enter');
+    if (!pinDisplay) return;
+    var dots = pinDisplay.querySelectorAll('.pin-dot');
+    dots.forEach(function(dot, index) {
+      if (index < pinState.pin.length) {
+        dot.classList.add('filled');
+      } else {
+        dot.classList.remove('filled');
+      }
+    });
+    var canSubmit = pinState.pin.length >= 4 && pinState.pin.length <= 6;
+    if (pinEnter) {
+      pinEnter.disabled = !canSubmit;
+      pinEnter.style.opacity = canSubmit ? '1' : '0.5';
     }
   }
 
@@ -180,7 +252,9 @@
     pinError.className = 'text-red-600 text-center text-sm mt-2';
     pinError.classList.remove('hidden');
     setTimeout(function() {
-      document.getElementById('pin-clear').click();
+      pinState.pin = '';
+      pinState.isSubmitting = false;
+      updatePinDisplay();
       pinError.classList.add('hidden');
     }, 2000);
   }
@@ -320,7 +394,20 @@
     var adminBtn = document.getElementById('admin-panel-btn');
     if (adminBtn) adminBtn.classList.add('hidden');
 
+    // Reset PIN state
+    pinState.pin = '';
+    pinState.isSubmitting = false;
+
     showScreen('pin');
+
+    // Reset PIN display and staff selector after screen switch
+    setTimeout(function() {
+      updatePinDisplay();
+      var pinError = document.getElementById('pin-error');
+      if (pinError) pinError.classList.add('hidden');
+      var selector = document.getElementById('staff-selector');
+      if (selector) selector.selectedIndex = 0;
+    }, 50);
 
     window.dispatchEvent(new CustomEvent('session:logout'));
   }
@@ -367,6 +454,8 @@
       window.dispatchEvent(new CustomEvent('session:restored', { detail: currentSession }));
     } else {
       showScreen('pin');
+      // Load staff selector on PIN screen
+      loadStaffSelector();
     }
   }
 
@@ -380,6 +469,7 @@
     getSession: getSession,
     isAdmin: isAdmin,
     logout: logout,
-    showScreen: showScreen
+    showScreen: showScreen,
+    loadStaffSelector: loadStaffSelector
   };
 })();
