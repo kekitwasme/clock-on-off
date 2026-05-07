@@ -297,13 +297,17 @@
         return;
       }
     } else if (shiftType === 'dinner') {
-      // Dinner: start must be PM (12:00+), end must be AM (before 12:00) or late PM
+      // Dinner: both start and end must be PM (12:00+)
       if (startHour < 12) {
         showToast('Dinner shift must start in the PM (12:00 or later).', 'error');
         return;
       }
-      if (endHour >= 12 && end <= start) {
-        showToast('Dinner shift end must be after start (or AM for late finishes).', 'error');
+      if (endHour < 12) {
+        showToast('Dinner shift must end in the PM (12:00 or later).', 'error');
+        return;
+      }
+      if (end <= start) {
+        showToast('Dinner shift end time must be after start time.', 'error');
         return;
       }
     }
