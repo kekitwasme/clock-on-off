@@ -243,8 +243,10 @@
     var staffDisplay = document.getElementById('roster-staff-display');
     if (staffDisplay) staffDisplay.textContent = staff.name;
     document.getElementById('roster-date-input').value = dateKey;
-    document.getElementById('roster-start-input').value = entry ? entry.start_time.slice(0, 5) : '';
-    document.getElementById('roster-end-input').value = entry ? entry.end_time.slice(0, 5) : '';
+    var startInput = document.getElementById('roster-start-input');
+    var endInput = document.getElementById('roster-end-input');
+    startInput.value = entry ? entry.start_time.slice(0, 5) : (shiftType === 'lunch' ? '11:00' : '17:00');
+    endInput.value = entry ? entry.end_time.slice(0, 5) : (shiftType === 'lunch' ? '15:00' : '22:00');
     document.getElementById('roster-notes-input').value = entry ? (entry.notes || '') : '';
     document.getElementById('roster-shift-type-input').value = shiftType;
 
@@ -278,6 +280,32 @@
     if (!staffId || !date || !start || !end) {
       showToast('Staff, date, start time, and end time are required.', 'error');
       return;
+    }
+
+    // Enforce shift time constraints
+    var startHour = parseInt(start.split(':')[0], 10);
+    var endHour = parseInt(end.split(':')[0], 10);
+
+    if (shiftType === 'lunch') {
+      // Lunch: start must be AM (before 12:00), end must be PM (12:00+)
+      if (startHour >= 12) {
+        showToast('Lunch shift must start in the AM (before 12:00).', 'error');
+        return;
+      }
+      if (endHour < 12) {
+        showToast('Lunch shift must end in the PM (12:00 or later).', 'error');
+        return;
+      }
+    } else if (shiftType === 'dinner') {
+      // Dinner: start must be PM (12:00+), end must be AM (before 12:00) or late PM
+      if (startHour < 12) {
+        showToast('Dinner shift must start in the PM (12:00 or later).', 'error');
+        return;
+      }
+      if (endHour >= 12 && end <= start) {
+        showToast('Dinner shift end must be after start (or AM for late finishes).', 'error');
+        return;
+      }
     }
 
     try {
