@@ -240,6 +240,8 @@
 
     document.getElementById('roster-id').value = entry ? entry.id : '';
     document.getElementById('roster-staff-input').value = staff.id;
+    var staffDisplay = document.getElementById('roster-staff-display');
+    if (staffDisplay) staffDisplay.textContent = staff.name;
     document.getElementById('roster-date-input').value = dateKey;
     document.getElementById('roster-start-input').value = entry ? entry.start_time.slice(0, 5) : '';
     document.getElementById('roster-end-input').value = entry ? entry.end_time.slice(0, 5) : '';

@@ -294,11 +294,10 @@
             <form id="roster-form">
                 <input type="hidden" id="roster-id">
                 <input type="hidden" id="roster-shift-type-input">
+                <input type="hidden" id="roster-staff-input">
                 <div class="mb-4">
                     <label class="block text-sm text-gray-600 mb-1">Staff</label>
-                    <select id="roster-staff-input" class="w-full p-3 border border-gray-300 rounded-lg" required>
-                        <!-- Populated dynamically -->
-                    </select>
+                    <div id="roster-staff-display" class="w-full p-3 bg-gray-100 border border-gray-200 rounded-lg font-semibold text-gray-800"></div>
                 </div>
                 <div class="mb-4">
                     <label class="block text-sm text-gray-600 mb-1">Date</label>
@@ -407,12 +406,12 @@ Pem,2026-05-07,17:00,22:00,Closing"></textarea>
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
-    <script src="db.js?v=12"></script>
-    <script src="auth.js?v=12"></script>
-    <script src="app.js?v=12"></script>
-    <script src="admin-timesheet.js?v=12"></script>
-    <script src="admin-roster.js?v=12"></script>
-    <script src="admin.js?v=12"></script>
+    <script src="db.js?v=13"></script>
+    <script src="auth.js?v=13"></script>
+    <script src="app.js?v=13"></script>
+    <script src="admin-timesheet.js?v=13"></script>
+    <script src="admin-roster.js?v=13"></script>
+    <script src="admin.js?v=13"></script>
     <script>
     (function() {
       'use strict';

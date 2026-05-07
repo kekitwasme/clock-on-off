@@ -733,7 +733,7 @@
 
       if (currentShiftsView === 'scheduled') {
         // Load roster entries
-        var roster = await window.ClockDB.getMyRoster(30);
+        var roster = await window.ClockDB.getMyRoster(session.id, 30);
         shiftsLoading.classList.add('hidden');
 
         if (!roster || roster.length === 0) {
@@ -957,7 +957,7 @@
 
       // Load upcoming roster
       try {
-        var roster = await window.ClockDB.getMyRoster(7);
+        var roster = await window.ClockDB.getMyRoster(session.id, 7);
         upcomingRoster = (roster && roster.length > 0) ? roster[0] : null;
         checkRosterForToday();
       } catch (rosterErr) {
