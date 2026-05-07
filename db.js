@@ -1,7 +1,7 @@
 /**
  * db.js - Supabase Client Module (Hardened)
  *
- * Handles all database operations for the Mucha Kitchen ClockOn app.
+ * Handles all database operations for the MK ClockOn app.
  * Uses Supabase free tier with Row-Level Security (RLS).
  *
  * SECURITY MODEL (no Supabase Auth, anon key only):
