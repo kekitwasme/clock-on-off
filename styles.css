@@ -891,7 +891,7 @@ textarea:disabled {
 .staff-timesheet-card {
     background: white;
     border-radius: 14px;
-    padding: 16px;
+    padding: 18px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     margin-bottom: 1rem;
 }
@@ -1001,16 +1001,17 @@ textarea:disabled {
     color: #475569;
     font-weight: 600;
     text-align: left;
-    padding: 0.5rem;
+    padding: 0.625rem 0.5rem;
     border-bottom: 2px solid #e2e8f0;
     white-space: nowrap;
 }
 
 .staff-timesheet-table tbody td {
-    padding: 0.5rem;
+    padding: 0.625rem 0.5rem;
     border-bottom: 1px solid #f1f5f9;
     color: #334155;
     vertical-align: middle;
+    line-height: 1.4;
 }
 
 .staff-timesheet-table tbody tr:last-child td {
