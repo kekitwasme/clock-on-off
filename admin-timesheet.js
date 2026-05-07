@@ -99,10 +99,8 @@
    */
   function renderByDate() {
     var container = getContainer();
-    var payrollDiv = document.getElementById('payroll-summary');
     if (!container) return;
 
-    hidePayroll(payrollDiv);
     container.innerHTML = '';
 
     var grouped = groupByDate(currentTimesheets);
@@ -121,8 +119,6 @@
    */
   function renderByStaff() {
     var container = getContainer();
-    var payrollDiv = document.getElementById('payroll-summary');
-    var payrollContent = document.getElementById('payroll-summary-content');
     if (!container) return;
 
     container.innerHTML = '';
@@ -130,12 +126,8 @@
     var grouped = groupByStaff(currentTimesheets);
     if (grouped.length === 0) {
       showEmpty(container);
-      hidePayroll(payrollDiv);
       return;
     }
-
-    showPayroll(payrollDiv);
-    buildPayrollTable(payrollContent, grouped);
 
     grouped.forEach(function(group) {
       container.appendChild(buildStaffCard(group));
@@ -260,16 +252,35 @@
 
     var hours = (group.totalMinutes / 60).toFixed(1);
     var badges = buildStaffBadges(group);
+    var dayTotals = calculateDayTotals(group.shifts);
 
     card.innerHTML =
       '<div class="staff-timesheet-header">' +
         '<div class="staff-timesheet-name">' + escapeHtml(group.staff.name) + '</div>' +
         '<div class="staff-timesheet-total">' + hours + ' hrs</div>' +
       '</div>' +
-      '<div class="staff-timesheet-badges">' + badges + '</div>';
+      '<div class="staff-timesheet-badges">' + badges + '</div>' +
+      '<div class="staff-day-totals">' +
+        '<span class="day-total-badge day-total-weekday">Mon–Fri: ' + dayTotals.weekday.toFixed(1) + 'h</span>' +
+        '<span class="day-total-badge day-total-saturday">Sat: ' + dayTotals.saturday.toFixed(1) + 'h</span>' +
+        '<span class="day-total-badge day-total-sunday">Sun: ' + dayTotals.sunday.toFixed(1) + 'h</span>' +
+      '</div>';
 
     card.appendChild(buildStaffShiftTable(group.shifts));
     return card;
+  }
+
+  function calculateDayTotals(shifts) {
+    var totals = { weekday: 0, saturday: 0, sunday: 0 };
+    shifts.forEach(function(shift) {
+      if (!shift.clock_out) return;
+      var hrs = window.ClockDB.calculateDuration(shift.clock_in, shift.clock_out) / (1000 * 60 * 60);
+      var day = new Date(shift.clock_in).getDay(); // 0=Sun, 6=Sat
+      if (day === 0) totals.sunday += hrs;
+      else if (day === 6) totals.saturday += hrs;
+      else totals.weekday += hrs;
+    });
+    return totals;
   }
 
   function buildStaffBadges(group) {
@@ -285,7 +296,7 @@
     table.className = 'staff-timesheet-table';
     table.innerHTML =
       '<thead><tr>' +
-        '<th>Date</th><th>Clock In</th><th>Clock Out</th><th>Duration</th><th>Status</th><th></th>' +
+        '<th>Date</th><th>In</th><th>Out</th><th>Dur</th><th>Status</th><th></th>' +
       '</tr></thead>';
 
     var tbody = document.createElement('tbody');
@@ -298,7 +309,11 @@
     });
 
     table.appendChild(tbody);
-    return table;
+
+    var wrapper = document.createElement('div');
+    wrapper.className = 'staff-timesheet-table-scroll';
+    wrapper.appendChild(table);
+    return wrapper;
   }
 
   function buildStaffShiftRow(shift) {
@@ -343,42 +358,7 @@
     return '<span class="status-ok">&#9989;</span>';
   }
 
-  // ===== Payroll Table =====
 
-  function buildPayrollTable(container, grouped) {
-    if (!container) return;
-
-    var table = document.createElement('table');
-    table.className = 'w-full text-sm';
-    table.innerHTML =
-      '<thead><tr class="bg-gray-100">' +
-        '<th class="p-2 text-left">Staff</th>' +
-        '<th class="p-2 text-right">Total Hrs</th>' +
-        '<th class="p-2 text-right">Late</th>' +
-        '<th class="p-2 text-right">Early</th>' +
-        '<th class="p-2 text-right">Adjusted</th>' +
-        '<th class="p-2 text-right">Shifts</th>' +
-      '</tr></thead>';
-
-    var tbody = document.createElement('tbody');
-    grouped.forEach(function(group) {
-      var hours = (group.totalMinutes / 60).toFixed(1);
-      var tr = document.createElement('tr');
-      tr.className = 'border-b';
-      tr.innerHTML =
-        '<td class="p-2 font-semibold">' + escapeHtml(group.staff.name) + '</td>' +
-        '<td class="p-2 text-right">' + hours + '</td>' +
-        '<td class="p-2 text-right ' + (group.lateCount > 0 ? 'text-orange-600' : 'text-gray-400') + '">' + group.lateCount + '</td>' +
-        '<td class="p-2 text-right ' + (group.earlyCount > 0 ? 'text-orange-600' : 'text-gray-400') + '">' + group.earlyCount + '</td>' +
-        '<td class="p-2 text-right ' + (group.adjustedCount > 0 ? 'text-blue-600' : 'text-gray-400') + '">' + group.adjustedCount + '</td>' +
-        '<td class="p-2 text-right">' + group.shifts.length + '</td>';
-      tbody.appendChild(tr);
-    });
-
-    table.appendChild(tbody);
-    container.innerHTML = '';
-    container.appendChild(table);
-  }
 
   // ===== Data Grouping =====
 
@@ -621,36 +601,7 @@
   // ===== CSV Export =====
 
   function exportCSV() {
-    if (currentView === VIEW_STAFF) {
-      exportPayrollCSV();
-    } else {
-      exportDetailCSV();
-    }
-  }
-
-  function exportPayrollCSV() {
-    if (!currentTimesheets || currentTimesheets.length === 0) {
-      showToast('No timesheets to export.', 'error');
-      return;
-    }
-
-    var grouped = groupByStaff(currentTimesheets);
-    var headers = ['Staff', 'Total_Hours', 'Late_Count', 'Early_Count', 'Adjusted_Count', 'Shift_Count'];
-    var lines = [headers.join(',')];
-
-    grouped.forEach(function(group) {
-      lines.push([
-        group.staff.name,
-        (group.totalMinutes / 60).toFixed(1),
-        group.lateCount,
-        group.earlyCount,
-        group.adjustedCount,
-        group.shifts.length
-      ].map(window.ClockDB.csvEscape).join(','));
-    });
-
-    downloadCSV(lines.join('\r\n'), 'payroll_summary_' + isoDate() + '.csv');
-    showToast('Exported payroll summary for ' + grouped.length + ' staff.', 'success');
+    exportDetailCSV();
   }
 
   function exportDetailCSV() {
@@ -864,13 +815,6 @@
     container.innerHTML = '<p class="text-center text-gray-500 py-4">No shifts found.</p>';
   }
 
-  function showPayroll(div) {
-    if (div) div.classList.remove('hidden');
-  }
-
-  function hidePayroll(div) {
-    if (div) div.classList.add('hidden');
-  }
 
   function getStaffName(shift) {
     return (shift.staff && shift.staff.name) ? shift.staff.name : 'Unknown';
