@@ -957,8 +957,10 @@
 
       // Load upcoming roster
       try {
-        var roster = await window.ClockDB.getMyRoster(session.id, 7);
-        upcomingRoster = (roster && roster.length > 0) ? roster[0] : null;
+        var roster = await window.ClockDB.getMyRoster(session.id, 14);
+        var todayStr = new Date().toISOString().slice(0, 10);
+        var upcoming = roster && roster.filter(function(r) { return r.roster_date >= todayStr; });
+        upcomingRoster = (upcoming && upcoming.length > 0) ? upcoming[0] : null;
         checkRosterForToday();
       } catch (rosterErr) {
         console.warn('Failed to load roster:', rosterErr);
