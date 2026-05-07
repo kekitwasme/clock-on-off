@@ -212,6 +212,20 @@
   }
 
   /**
+   * Get active staff names/IDs for login screen (public, no auth required).
+   * @returns {Promise<Array>}
+   */
+  async function getActiveStaffNames() {
+    var client = getClient();
+    var result = await client.rpc('get_active_staff_names');
+
+    if (result.error) {
+      throw new Error('Failed to get staff names: ' + result.error.message);
+    }
+    return result.data || [];
+  }
+
+  /**
    * Get all staff (admin only — enforced by RLS + server checks).
    * @returns {Promise<Array>}
    */
@@ -843,6 +857,7 @@
     logoutStaff: logoutStaff,
     getCurrentStaff: getCurrentStaff,
     getStaffById: getStaffById,
+    getActiveStaffNames: getActiveStaffNames,
     getAllStaff: getAllStaff,
     createStaff: createStaff,
     updateStaff: updateStaff,

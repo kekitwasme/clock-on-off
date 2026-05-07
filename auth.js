@@ -117,7 +117,7 @@
     if (!selector) return;
 
     try {
-      var staffList = await window.ClockDB.getAllStaff();
+      var staffList = await window.ClockDB.getActiveStaffNames();
       var activeStaff = staffList.filter(function(s) { return s.active; });
 
       // Clear existing options except the placeholder
