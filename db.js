@@ -242,16 +242,28 @@
       p_name: staffData.name,
       p_pin: staffData.pin,
       p_role: staffData.role || 'staff',
-      p_active: staffData.active !== undefined ? staffData.active : true,
-      p_expected_start_time: staffData.expectedStartTime || null,
-      p_expected_end_time: staffData.expectedEndTime || null
+      p_active: staffData.active !== undefined ? staffData.active : true
     });
 
     if (result.error) {
       throw new Error('Failed to create staff: ' + result.error.message);
     }
 
-    return result.data;
+    // Set expected times separately if provided (function doesn't accept them as params yet)
+    var newStaff = result.data;
+    if ((staffData.expectedStartTime || staffData.expectedEndTime) && newStaff && newStaff.id) {
+      try {
+        await updateStaff(newStaff.id, {
+          expectedStartTime: staffData.expectedStartTime || null,
+          expectedEndTime: staffData.expectedEndTime || null
+        });
+      } catch (e) {
+        // Expected times update failed, but staff was created — log and continue
+        console.warn('Staff created but expected times update failed:', e.message);
+      }
+    }
+
+    return newStaff;
   }
 
   /**
@@ -269,13 +281,23 @@
       p_name: updates.name !== undefined ? updates.name : null,
       p_pin: updates.pin !== undefined ? updates.pin : null,
       p_role: updates.role !== undefined ? updates.role : null,
-      p_active: updates.active !== undefined ? updates.active : null,
-      p_expected_start_time: updates.expectedStartTime !== undefined ? updates.expectedStartTime : null,
-      p_expected_end_time: updates.expectedEndTime !== undefined ? updates.expectedEndTime : null
+      p_active: updates.active !== undefined ? updates.active : null
     });
 
     if (result.error) {
       throw new Error('Failed to update staff: ' + result.error.message);
+    }
+
+    // Update expected times directly (function doesn't handle these columns)
+    if (updates.expectedStartTime !== undefined || updates.expectedEndTime !== undefined) {
+      var patchData = {};
+      if (updates.expectedStartTime !== undefined) patchData.expected_start_time = updates.expectedStartTime || null;
+      if (updates.expectedEndTime !== undefined) patchData.expected_end_time = updates.expectedEndTime || null;
+      try {
+        await client.from('staff').update(patchData).eq('id', staffId);
+      } catch (e) {
+        console.warn('Expected times update failed:', e.message);
+      }
     }
 
     return result.data;
