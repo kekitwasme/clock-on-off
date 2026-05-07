@@ -1,8 +1,8 @@
 /**
  * admin-roster.js - Roster Module
  *
- * Handles weekly roster grid view, week navigation, CRUD operations,
- * and CSV import with preview and validation.
+ * Per-staff card view with lunch/dinner sections.
+ * Handles week navigation, CRUD operations, and CSV import.
  */
 
 (function() {
@@ -11,25 +11,19 @@
   // ===== State =====
   var currentWeekStart = null;
   var isLoading = false;
-  var importData = []; // Validated rows ready for import
+  var importData = [];
 
   // ===== Constants =====
   var DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   // ===== Public API =====
 
-  /**
-   * Initialise roster controls (navigation, modals, import).
-   */
   function initControls() {
     initWeekNav();
     initRosterModal();
     initImportModal();
   }
 
-  /**
-   * Load and display the roster grid for the current week.
-   */
   async function load() {
     if (isLoading) return;
     isLoading = true;
@@ -63,8 +57,8 @@
 
       if (loading) loading.classList.add('hidden');
 
-      var grid = buildRosterGrid(staffList, rosterEntries);
-      container.appendChild(grid);
+      var wrapper = buildRosterCards(staffList, rosterEntries);
+      container.appendChild(wrapper);
 
       if (rosterEntries.length === 0 && empty) {
         empty.classList.remove('hidden');
@@ -78,81 +72,93 @@
     }
   }
 
-  /**
-   * Get the current week start.
-   * @returns {Date|null}
-   */
   function getCurrentWeekStart() {
     return currentWeekStart;
   }
 
-  // ===== Grid Building =====
+  // ===== Card Layout =====
 
-  function buildRosterGrid(staffList, rosterEntries) {
-    var grid = document.createElement('div');
-    grid.className = 'roster-grid';
+  function buildRosterCards(staffList, rosterEntries) {
+    var wrapper = document.createElement('div');
+    wrapper.className = 'roster-cards';
 
-    // Header row
-    grid.appendChild(buildHeaderCell('Staff'));
-    for (var i = 0; i < 7; i++) {
-      var dayDate = addDays(currentWeekStart, i);
-      grid.appendChild(buildHeaderCell(DAY_NAMES[i] + ' ' + dayDate.getDate()));
+    if (staffList.length === 0) {
+      wrapper.innerHTML = '<p class="text-gray-500 text-center py-4">No staff found.</p>';
+      return wrapper;
     }
 
-    // Staff rows — 2 sub-rows per staff (lunch + dinner)
     staffList.forEach(function(staff) {
-      grid.appendChild(buildStaffCell(staff));
-
-      // Lunch row
-      grid.appendChild(buildShiftLabelCell('Lunch'));
-      for (var d = 0; d < 7; d++) {
-        var cellDate = addDays(currentWeekStart, d);
-        var dateKey = formatDateKey(cellDate);
-        var entry = findRosterEntry(rosterEntries, staff.id, dateKey, 'lunch');
-        grid.appendChild(buildRosterCell(staff, dateKey, 'lunch', entry));
-      }
-
-      // Dinner row
-      grid.appendChild(buildShiftLabelCell('Dinner'));
-      for (var d = 0; d < 7; d++) {
-        var cellDate = addDays(currentWeekStart, d);
-        var dateKey = formatDateKey(cellDate);
-        var entry = findRosterEntry(rosterEntries, staff.id, dateKey, 'dinner');
-        grid.appendChild(buildRosterCell(staff, dateKey, 'dinner', entry));
-      }
+      var card = buildStaffCard(staff, rosterEntries);
+      wrapper.appendChild(card);
     });
 
-    return grid;
+    return wrapper;
   }
 
-  function buildHeaderCell(text) {
-    var cell = document.createElement('div');
-    cell.className = 'roster-grid-header';
-    cell.textContent = text;
-    return cell;
+  function buildStaffCard(staff, rosterEntries) {
+    var card = document.createElement('div');
+    card.className = 'roster-staff-card';
+
+    // Staff name header
+    var header = document.createElement('div');
+    header.className = 'roster-staff-card-header';
+    header.innerHTML = '<span class="roster-staff-card-name">' + escapeHtml(staff.name) + '</span>';
+    card.appendChild(header);
+
+    // Day labels row
+    var dayRow = document.createElement('div');
+    dayRow.className = 'roster-day-row';
+    dayRow.innerHTML = '<div class="roster-day-label-cell"></div>';
+    for (var d = 0; d < 7; d++) {
+      var dayDate = addDays(currentWeekStart, d);
+      var dayCell = document.createElement('div');
+      dayCell.className = 'roster-day-label';
+      dayCell.innerHTML =
+        '<span class="roster-day-name">' + DAY_NAMES[d] + '</span>' +
+        '<span class="roster-day-num">' + dayDate.getDate() + '</span>';
+      dayRow.appendChild(dayCell);
+    }
+    card.appendChild(dayRow);
+
+    // Lunch row
+    var lunchRow = buildShiftRow(staff, 'lunch', rosterEntries);
+    card.appendChild(lunchRow);
+
+    // Dinner row
+    var dinnerRow = buildShiftRow(staff, 'dinner', rosterEntries);
+    card.appendChild(dinnerRow);
+
+    return card;
   }
 
-  function buildStaffCell(staff) {
-    var cell = document.createElement('div');
-    cell.className = 'roster-grid-staff';
-    cell.textContent = staff.name;
-    cell.style.gridRow = 'span 2';
-    return cell;
+  function buildShiftRow(staff, shiftType, rosterEntries) {
+    var row = document.createElement('div');
+    row.className = 'roster-shift-row';
+
+    // Shift label
+    var label = document.createElement('div');
+    label.className = 'roster-shift-label';
+    label.textContent = capitalize(shiftType);
+    row.appendChild(label);
+
+    // 7 day cells
+    for (var d = 0; d < 7; d++) {
+      var cellDate = addDays(currentWeekStart, d);
+      var dateKey = formatDateKey(cellDate);
+      var entry = findRosterEntry(rosterEntries, staff.id, dateKey, shiftType);
+      var cell = buildShiftCell(staff, dateKey, shiftType, entry);
+      row.appendChild(cell);
+    }
+
+    return row;
   }
 
-  function buildShiftLabelCell(text) {
+  function buildShiftCell(staff, dateKey, shiftType, entry) {
     var cell = document.createElement('div');
-    cell.className = 'roster-shift-label';
-    cell.textContent = text;
-    return cell;
-  }
-
-  function buildRosterCell(staff, dateKey, shiftType, entry) {
-    var cell = document.createElement('div');
-    cell.className = 'roster-cell';
+    cell.className = 'roster-shift-cell';
 
     if (entry) {
-      cell.classList.add('roster-cell-scheduled');
+      cell.classList.add('roster-shift-cell-scheduled');
       cell.innerHTML =
         '<span class="roster-time">' + entry.start_time.slice(0, 5) + '–' + entry.end_time.slice(0, 5) + '</span>' +
         (entry.notes ? '<span class="roster-notes">' + escapeHtml(entry.notes) + '</span>' : '');
@@ -239,6 +245,12 @@
     document.getElementById('roster-end-input').value = entry ? entry.end_time.slice(0, 5) : '';
     document.getElementById('roster-notes-input').value = entry ? (entry.notes || '') : '';
     document.getElementById('roster-shift-type-input').value = shiftType;
+
+    // Update display dropdown
+    var displaySelect = document.getElementById('roster-shift-type-display');
+    if (displaySelect) {
+      displaySelect.value = shiftType;
+    }
 
     document.getElementById('roster-modal-title').textContent =
       (entry ? 'Edit' : 'Add') + ' ' + capitalize(shiftType) + ' Roster';
@@ -537,7 +549,6 @@
         });
         success++;
       } catch (err) {
-        // Try update if exists
         var handled = await tryUpdateExisting(row);
         if (handled) {
           success++;
