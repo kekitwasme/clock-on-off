@@ -118,14 +118,14 @@
 
     try {
       var staffList = await window.ClockDB.getActiveStaffNames();
-      var activeStaff = staffList.filter(function(s) { return s.active; });
+      // Already filtered to active by the RPC
 
       // Clear existing options except the placeholder
       while (selector.options.length > 1) {
         selector.remove(1);
       }
 
-      activeStaff.forEach(function(staff) {
+      staffList.forEach(function(staff) {
         var option = document.createElement('option');
         option.value = staff.id;
         option.textContent = staff.name;
