@@ -786,21 +786,23 @@ textarea:disabled {
 
 #toast-container {
     position: fixed;
-    top: 1rem;
+    top: 50%;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translate(-50%, -50%);
     z-index: 9999;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 0.5rem;
     pointer-events: none;
-    max-width: 420px;
+    max-width: 380px;
     width: calc(100% - 2rem);
 }
 
 .toast {
-    background: white;
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border-radius: 0.75rem;
     padding: 1rem 1.25rem;
     box-shadow: 0 8px 30px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.1);
@@ -814,49 +816,72 @@ textarea:disabled {
     border-left: 5px solid transparent;
     width: 100%;
     text-align: left;
+    cursor: pointer;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.toast:hover {
+    opacity: 0.92;
+}
+
+.toast:active {
+    transform: scale(0.97);
 }
 
 .toast-warning {
     border-left-color: #eab308;
-    background: #fefce8;
+    background: rgba(254, 252, 232, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     color: #854d0e;
 }
 
 .toast-alert {
     border-left-color: #f97316;
-    background: #fff7ed;
+    background: rgba(255, 247, 237, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     color: #9a3412;
 }
 
 .toast-success {
     border-left-color: #22c55e;
-    background: #f0fdf4;
+    background: rgba(240, 253, 244, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     color: #166534;
 }
 
 .toast-error {
     border-left-color: #ef4444;
-    background: #fef2f2;
+    background: rgba(254, 242, 242, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     color: #991b1b;
 }
 
 .toast-info {
     border-left-color: #3b82f6;
-    background: #eff6ff;
+    background: rgba(239, 246, 255, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     color: #1e40af;
 }
 
 @keyframes toastSlideDown {
-    from { opacity: 0; transform: translateY(-20px); }
-    to { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
 }
 
-.toast-fade-out {
+.toast-fade-out,
+.toast.hiding {
+    animation: toastFadeOut 0.3s ease forwards;
+}
     animation: toastFadeOut 0.3s ease forwards;
 }
 
 @keyframes toastFadeOut {
-    to { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 0; transform: scale(0.9); }
 }
 
 /* ===== Feature Update: Late/Early Badges ===== */

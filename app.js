@@ -134,6 +134,15 @@
     toast.className = 'toast ' + type;
     toast.textContent = message;
 
+    // Click to dismiss
+    toast.addEventListener('click', function() {
+      if (toast.classList.contains('hiding')) return;
+      toast.classList.add('hiding');
+      setTimeout(function() {
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+      }, 300);
+    });
+
     container.appendChild(toast);
 
     setTimeout(function() {
