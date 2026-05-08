@@ -701,7 +701,13 @@
     if (result.error) {
       throw new Error('Failed to get roster: ' + result.error.message);
     }
-    return result.data || [];
+    var rosterData = result.data || [];
+    // Normalize column names: DB functions now return roster_id/roster_staff_id
+    rosterData.forEach(function(entry) {
+      if (entry.roster_id) { entry.id = entry.roster_id; delete entry.roster_id; }
+      if (entry.roster_staff_id) { entry.staff_id = entry.roster_staff_id; delete entry.roster_staff_id; }
+    });
+    return rosterData;
   }
 
   /**
@@ -729,7 +735,14 @@
     if (result.error) {
       throw new Error('Failed to get roster: ' + result.error.message);
     }
-    return result.data || [];
+    // Normalize column names: DB functions now return roster_id/roster_staff_id
+    // to avoid ambiguous column refs; map back to id/staff_id for the UI
+    var data = result.data || [];
+    data.forEach(function(entry) {
+      if (entry.roster_id) { entry.id = entry.roster_id; delete entry.roster_id; }
+      if (entry.roster_staff_id) { entry.staff_id = entry.roster_staff_id; delete entry.roster_staff_id; }
+    });
+    return data;
   }
 
   /**

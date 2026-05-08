@@ -1,18 +1,15 @@
 -- =====================================================
--- Nuclear option: drop ALL versions of these functions, then recreate
+-- DEFINITIVE FIX: Use RETURNS TABLE with safe column names
+-- AND force PostgREST schema reload
 -- =====================================================
 
--- Drop all possible signatures of get_my_roster
+-- Step 1: Drop ALL versions of these functions
 DROP FUNCTION IF EXISTS get_my_roster(UUID, INTEGER);
 DROP FUNCTION IF EXISTS get_my_roster(INTEGER);
-
--- Drop all possible signatures of get_roster_for_week
 DROP FUNCTION IF EXISTS get_roster_for_week(DATE, DATE);
 
--- Verify they're gone (should return empty)
--- SELECT proname, pg_get_function_identity_arguments(oid) FROM pg_proc WHERE proname IN ('get_my_roster', 'get_roster_for_week');
+-- Step 2: Recreate with safe column names (no conflicts with table columns)
 
--- get_roster_for_week (no JOIN, subquery for staff_name)
 CREATE FUNCTION get_roster_for_week(
     p_start_date DATE,
     p_end_date DATE
@@ -70,7 +67,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
--- get_my_roster (session-based, no JOIN, subquery for staff_name)
 CREATE FUNCTION get_my_roster(
     p_days_ahead INTEGER DEFAULT 30
 )
@@ -128,3 +124,7 @@ BEGIN
     ORDER BY r.roster_date, r.shift_type, r.start_time;
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+
+-- Step 3: Force PostgREST to reload schema cache
+-- This uses the Supabase pg_catalog trick
+NOTIFY pgrst, 'reload schema';
