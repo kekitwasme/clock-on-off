@@ -175,7 +175,7 @@
 
   function findRosterEntry(entries, staffId, dateKey, shiftType) {
     return entries.find(function(r) {
-      return r.staff_id === staffId && r.roster_date === dateKey && r.shift_type === shiftType;
+      return (r.roster_staff_id || r.staff_id) === staffId && r.roster_date === dateKey && r.shift_type === shiftType;
     });
   }
 
@@ -238,7 +238,7 @@
     var modal = document.getElementById('roster-modal');
     if (!modal) return;
 
-    document.getElementById('roster-id').value = entry ? entry.id : '';
+    document.getElementById('roster-id').value = entry ? (entry.roster_id || entry.id) : '';
     document.getElementById('roster-staff-input').value = staff.id;
     var staffDisplay = document.getElementById('roster-staff-display');
     if (staffDisplay) staffDisplay.textContent = staff.name;
@@ -607,10 +607,10 @@
         formatDateKey(weekEnd)
       );
       var entry = existing.find(function(e) {
-        return e.staff_id === row.staffId && e.roster_date === row.date && e.shift_type === (row.shiftType || 'lunch');
+        return (e.roster_staff_id || e.staff_id) === row.staffId && e.roster_date === row.date && e.shift_type === (row.shiftType || 'lunch');
       });
       if (entry) {
-        await window.ClockDB.updateRosterEntry(entry.id, {
+        await window.ClockDB.updateRosterEntry(entry.roster_id || entry.id, {
           startTime: row.startTime,
           endTime: row.endTime,
           notes: row.notes

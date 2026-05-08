@@ -1,15 +1,16 @@
 -- =====================================================
--- Fix: Remove JOIN to eliminate ambiguous column refs
--- Date: 2026-05-08
+-- Nuclear option: drop ALL versions of these functions, then recreate
 -- =====================================================
--- The "id" column exists in both rosters and staff tables,
--- causing "column reference 'id' is ambiguous" in RETURNS TABLE.
--- Fix: use subquery for staff_name instead of JOIN.
 
--- Drop functions that need recreating
-DROP FUNCTION IF EXISTS get_roster_for_week(DATE, DATE);
+-- Drop all possible signatures of get_my_roster
 DROP FUNCTION IF EXISTS get_my_roster(UUID, INTEGER);
 DROP FUNCTION IF EXISTS get_my_roster(INTEGER);
+
+-- Drop all possible signatures of get_roster_for_week
+DROP FUNCTION IF EXISTS get_roster_for_week(DATE, DATE);
+
+-- Verify they're gone (should return empty)
+-- SELECT proname, pg_get_function_identity_arguments(oid) FROM pg_proc WHERE proname IN ('get_my_roster', 'get_roster_for_week');
 
 -- get_roster_for_week (no JOIN, subquery for staff_name)
 CREATE FUNCTION get_roster_for_week(
@@ -17,8 +18,8 @@ CREATE FUNCTION get_roster_for_week(
     p_end_date DATE
 )
 RETURNS TABLE (
-    id UUID,
-    staff_id UUID,
+    roster_id UUID,
+    roster_staff_id UUID,
     staff_name TEXT,
     roster_date DATE,
     start_time TIME,
@@ -74,8 +75,8 @@ CREATE FUNCTION get_my_roster(
     p_days_ahead INTEGER DEFAULT 30
 )
 RETURNS TABLE (
-    id UUID,
-    staff_id UUID,
+    roster_id UUID,
+    roster_staff_id UUID,
     staff_name TEXT,
     roster_date DATE,
     start_time TIME,
