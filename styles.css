@@ -877,8 +877,6 @@ textarea:disabled {
 .toast.hiding {
     animation: toastFadeOut 0.3s ease forwards;
 }
-    animation: toastFadeOut 0.3s ease forwards;
-}
 
 @keyframes toastFadeOut {
     to { opacity: 0; transform: scale(0.9); }
