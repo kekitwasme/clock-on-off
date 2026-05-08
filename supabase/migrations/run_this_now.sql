@@ -1,4 +1,17 @@
--- 3. Update create_roster_entry to accept and store shift_type
+-- =====================================================
+-- Migration Part 2: Function updates for shift_type
+-- Date: 2026-05-08
+-- =====================================================
+-- Run in Supabase Dashboard SQL Editor.
+-- shift_type column and unique index already exist.
+-- This drops old functions and recreates them.
+
+-- Drop old functions with changed signatures first
+DROP FUNCTION IF EXISTS get_roster_for_week(DATE, DATE);
+DROP FUNCTION IF EXISTS get_my_roster(UUID, INTEGER);
+DROP FUNCTION IF EXISTS get_my_roster(INTEGER);
+
+-- Update create_roster_entry (adds p_shift_type, p_force)
 CREATE OR REPLACE FUNCTION create_roster_entry(
     p_staff_id UUID,
     p_roster_date DATE,
@@ -50,7 +63,6 @@ BEGIN
             USING ERRCODE = 'P0002';
     END IF;
 
-    -- Conflict detection: only check within same shift_type
     IF NOT COALESCE(p_force, FALSE) THEN
         v_conflict := detect_roster_conflict(
             p_staff_id, p_roster_date,
@@ -78,7 +90,7 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 4. Update update_roster_entry to allow updating shift_type
+-- Update update_roster_entry (adds p_shift_type)
 CREATE OR REPLACE FUNCTION update_roster_entry(
     p_id UUID,
     p_start_time TIME,
@@ -155,7 +167,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 5. Update detect_roster_conflict to scope by shift_type
+-- Update detect_roster_conflict to scope by shift_type
 CREATE OR REPLACE FUNCTION detect_roster_conflict(
     p_staff_id UUID,
     p_roster_date DATE,
@@ -197,8 +209,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE;
 
--- 6. Update get_roster_for_week to include shift_type
-CREATE OR REPLACE FUNCTION get_roster_for_week(
+-- Recreate get_roster_for_week with shift_type in return columns
+CREATE FUNCTION get_roster_for_week(
     p_start_date DATE,
     p_end_date DATE
 )
@@ -256,8 +268,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
--- 7. Update get_my_roster to include shift_type and extend to start of current week
-CREATE OR REPLACE FUNCTION get_my_roster(
+-- Recreate get_my_roster (session-based, no p_staff_id param, returns shift_type)
+CREATE FUNCTION get_my_roster(
     p_days_ahead INTEGER DEFAULT 30
 )
 RETURNS TABLE (
@@ -292,7 +304,6 @@ BEGIN
         p_days_ahead := 30;
     END IF;
 
-    -- Show from start of current week through days_ahead
     v_today := DATE_TRUNC('week', CURRENT_DATE)::DATE;
     v_end_date := CURRENT_DATE + (p_days_ahead || ' days')::INTERVAL;
 

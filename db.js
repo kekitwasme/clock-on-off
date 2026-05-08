@@ -713,10 +713,19 @@
   async function getMyRoster(daysAhead) {
     daysAhead = daysAhead !== undefined ? daysAhead : 30;
     var client = getClient();
+    // Try new signature (session-based, returns shift_type) first
+    // Fall back to old signature (p_staff_id required) for pre-migration DB
     var result = await client.rpc('get_my_roster', {
       p_days_ahead: daysAhead
     });
-
+    if (result.error && result.error.message && result.error.message.indexOf('p_staff_id') !== -1) {
+      // Old DB function — fall back to passing staff_id
+      var session = JSON.parse(localStorage.getItem('clockon_session') || '{}');
+      result = await client.rpc('get_my_roster', {
+        p_staff_id: session.id,
+        p_days_ahead: daysAhead
+      });
+    }
     if (result.error) {
       throw new Error('Failed to get roster: ' + result.error.message);
     }
