@@ -675,6 +675,44 @@
     return result;
   }
 
+  function groupRosterByDate(roster) {
+    if (!roster || roster.length === 0) return [];
+
+    var groups = {};
+    roster.forEach(function(entry) {
+      var dateKey = entry.roster_date;
+      if (!groups[dateKey]) {
+        groups[dateKey] = { date: dateKey, entries: [] };
+      }
+      groups[dateKey].entries.push(entry);
+    });
+
+    var result = Object.values(groups);
+    result.sort(function(a, b) { return a.date.localeCompare(b.date); });
+    return result;
+  }
+
+  function buildShiftSection(shiftType, entries) {
+    var section = document.createElement('div');
+    section.className = 'sched-shift-section sched-shift-' + shiftType;
+
+    var label = document.createElement('div');
+    label.className = 'sched-shift-label';
+    var icon = shiftType === 'lunch' ? '🍽' : '🌙';
+    var text = shiftType === 'lunch' ? 'Lunch' : 'Dinner';
+    label.innerHTML = icon + ' ' + text;
+    section.appendChild(label);
+
+    var shiftsWrap = document.createElement('div');
+    shiftsWrap.className = 'sched-shift-entries';
+    entries.forEach(function(entry) {
+      shiftsWrap.appendChild(createRosterCard(entry));
+    });
+    section.appendChild(shiftsWrap);
+
+    return section;
+  }
+
   // ===== My Shifts View =====
 
   var currentShiftsView = 'worked'; // 'worked' | 'scheduled'
@@ -732,8 +770,8 @@
       }
 
       if (currentShiftsView === 'scheduled') {
-        // Load roster entries
-        var roster = await window.ClockDB.getMyRoster(session.id, 30);
+        // Load roster entries grouped by day with lunch/dinner distinction
+        var roster = await window.ClockDB.getMyRoster(30);
         shiftsLoading.classList.add('hidden');
 
         if (!roster || roster.length === 0) {
@@ -742,8 +780,53 @@
           return;
         }
 
-        roster.forEach(function(entry) {
-          shiftsList.appendChild(createRosterCard(entry));
+        // Group by date
+        var grouped = groupRosterByDate(roster);
+        grouped.forEach(function(group) {
+          var dayCard = document.createElement('div');
+          dayCard.className = 'sched-day-card';
+
+          // Day header
+          var dayHeader = document.createElement('div');
+          dayHeader.className = 'sched-day-header';
+          var dayDate = new Date(group.date + 'T00:00:00');
+          var todayStr = new Date().toISOString().slice(0, 10);
+          var tomorrowStr = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+          var dayLabel;
+          if (group.date === todayStr) {
+            dayLabel = 'Today';
+          } else if (group.date === tomorrowStr) {
+            dayLabel = 'Tomorrow';
+          } else {
+            dayLabel = dayDate.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short' });
+          }
+          var isPast = group.date < todayStr;
+          dayHeader.innerHTML =
+            '<span class="sched-day-header-title">' + escapeHtml(dayLabel) + '</span>' +
+            '<span class="sched-day-header-meta">' + group.date.slice(8, 10) + '/' + group.date.slice(5, 7) + '</span>' +
+            (isPast ? '<span class="sched-day-past-badge">Past</span>' : '');
+          dayCard.appendChild(dayHeader);
+
+          // Lunch section
+          var lunchEntries = group.entries.filter(function(e) { return e.shift_type === 'lunch'; });
+          var dinnerEntries = group.entries.filter(function(e) { return e.shift_type === 'dinner'; });
+
+          if (lunchEntries.length > 0) {
+            dayCard.appendChild(buildShiftSection('lunch', lunchEntries));
+          }
+          if (dinnerEntries.length > 0) {
+            dayCard.appendChild(buildShiftSection('dinner', dinnerEntries));
+          }
+
+          // Fallback for entries without shift_type (legacy data)
+          var untyped = group.entries.filter(function(e) { return e.shift_type !== 'lunch' && e.shift_type !== 'dinner'; });
+          if (untyped.length > 0) {
+            untyped.forEach(function(entry) {
+              dayCard.appendChild(createRosterCard(entry));
+            });
+          }
+
+          shiftsList.appendChild(dayCard);
         });
       } else {
         // Load worked shifts
@@ -796,24 +879,17 @@
 
   function createRosterCard(entry) {
     var card = document.createElement('div');
-    var date = new Date(entry.roster_date);
-    var dateStr = date.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
-    var isPast = date < new Date();
+    var shiftType = entry.shift_type || 'lunch';
+    var isPast = entry.roster_date < new Date().toISOString().slice(0, 10);
 
-    card.className = 'shift-card ' + (isPast ? 'completed' : 'active');
+    card.className = 'sched-shift-card ' + (isPast ? 'sched-past' : 'sched-upcoming');
     card.innerHTML =
-      '<div class="flex justify-between items-start mb-2">' +
-        '<span class="font-semibold text-gray-800">' + escapeHtml(dateStr) + '</span>' +
-        '<span class="text-xs px-2 py-1 rounded-full ' + (isPast ? 'bg-gray-100 text-gray-500' : 'bg-blue-100 text-blue-700') + '">' + (isPast ? 'Past' : 'Upcoming') + '</span>' +
+      '<div class="sched-shift-times">' +
+        '<span class="sched-time-start">' + (entry.start_time || '').slice(0, 5) + '</span>' +
+        '<span class="sched-time-arrow">→</span>' +
+        '<span class="sched-time-end">' + (entry.end_time || '').slice(0, 5) + '</span>' +
       '</div>' +
-      '<div class="flex justify-between items-center">' +
-        '<div class="shift-time">' +
-          '<span class="text-green-600 font-medium">' + entry.start_time.slice(0, 5) + '</span>' +
-          '<span class="mx-2">→</span>' +
-          '<span class="text-red-600 font-medium">' + entry.end_time.slice(0, 5) + '</span>' +
-        '</div>' +
-      '</div>' +
-      (entry.notes ? '<p class="text-sm text-gray-500 mt-2">' + escapeHtml(entry.notes) + '</p>' : '');
+      (entry.notes ? '<div class="sched-shift-notes">' + escapeHtml(entry.notes) + '</div>' : '');
 
     return card;
   }
@@ -957,7 +1033,7 @@
 
       // Load upcoming roster
       try {
-        var roster = await window.ClockDB.getMyRoster(session.id, 14);
+        var roster = await window.ClockDB.getMyRoster(14);
         var todayStr = new Date().toISOString().slice(0, 10);
         var upcoming = roster && roster.filter(function(r) { return r.roster_date >= todayStr; });
         upcomingRoster = (upcoming && upcoming.length > 0) ? upcoming[0] : null;

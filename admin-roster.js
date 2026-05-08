@@ -317,7 +317,8 @@
         await window.ClockDB.updateRosterEntry(rosterId, {
           startTime: start,
           endTime: end,
-          notes: notes
+          notes: notes,
+          shiftType: shiftType
         });
         showToast('Roster entry updated.', 'success');
       } else {

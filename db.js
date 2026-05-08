@@ -651,12 +651,16 @@
    */
   async function updateRosterEntry(rosterId, updates) {
     var client = getClient();
-    var result = await client.rpc('update_roster_entry', {
+    var params = {
       p_id: rosterId,
       p_start_time: updates.startTime || null,
       p_end_time: updates.endTime || null,
       p_notes: updates.notes !== undefined ? updates.notes : null
-    });
+    };
+    if (updates.shiftType) {
+      params.p_shift_type = updates.shiftType;
+    }
+    var result = await client.rpc('update_roster_entry', params);
 
     if (result.error) {
       throw new Error('Failed to update roster: ' + result.error.message);
@@ -706,11 +710,10 @@
    * @param {number} daysAhead
    * @returns {Promise<Array>}
    */
-  async function getMyRoster(staffId, daysAhead) {
-    daysAhead = daysAhead !== undefined ? daysAhead : 14;
+  async function getMyRoster(daysAhead) {
+    daysAhead = daysAhead !== undefined ? daysAhead : 30;
     var client = getClient();
     var result = await client.rpc('get_my_roster', {
-      p_staff_id: staffId,
       p_days_ahead: daysAhead
     });
 
