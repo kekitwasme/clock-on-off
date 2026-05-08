@@ -343,9 +343,11 @@
       }
     }
 
-    // Set min/max attributes for native time picker constraints
-    timePicker.min = formatTimeInput(timeWindowMin);
-    timePicker.max = formatTimeInput(timeWindowMax);
+    // Set min/max attributes for native time picker constraints (clock-off only)
+    if (timeWindowMin && timeWindowMax) {
+      timePicker.min = formatTimeInput(timeWindowMin);
+      timePicker.max = formatTimeInput(timeWindowMax);
+    }
   }
 
   /**
