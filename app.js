@@ -310,6 +310,7 @@
         } catch (checkErr) {
           console.warn('Late/early check failed for clock on:', checkErr.message);
         }
+        if (actionBtn) actionBtn.disabled = false;
       } else {
         if (!currentShift || !currentShift.id) {
           throw new Error('No active shift to clock off from.');
@@ -344,6 +345,7 @@
         } catch (checkErr) {
           console.warn('Late/early check failed for clock off:', checkErr.message);
         }
+        if (actionBtn) actionBtn.disabled = false;
       }
 
     } catch (error) {
