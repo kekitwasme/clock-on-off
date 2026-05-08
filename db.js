@@ -345,15 +345,17 @@
    * @param {string|null} notes - Optional notes
    * @returns {Promise<object>}
    */
-  async function clockOn(clockInTime, adjusted, notes) {
+  async function clockOn(clockInTime, adjusted, notes, skipTimeCheck) {
     adjusted = adjusted !== undefined ? adjusted : false;
     notes = notes || null;
+    skipTimeCheck = skipTimeCheck || false;
 
     var client = getClient();
     var result = await client.rpc('clock_on_shift', {
       p_clock_in: clockInTime,
       p_adjusted: adjusted,
-      p_notes: notes
+      p_notes: notes,
+      p_skip_time_check: skipTimeCheck
     });
 
     if (result.error) {

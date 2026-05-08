@@ -245,7 +245,7 @@
     }
   }
 
-  // ===== Time Picker (±10 min enforcement) =====
+  // ===== Time Picker (±10 min for clock-off, relaxed for clock-on) =====
 
   /**
    * Fetch server time and initialize the time picker.
@@ -257,53 +257,90 @@
 
     if (!timePicker || !timePickerHint) return;
 
+    // Determine if this is a clock-on (no active shift) or clock-off
+    var isClockOn = !currentShift;
+
     try {
       if (!window.ClockDB) throw new Error('Database not initialized');
 
       serverTime = await window.ClockDB.getServerTime();
-      timeWindowMin = new Date(serverTime.getTime() - 10 * 60 * 1000);
-      timeWindowMax = new Date(serverTime.getTime());
 
-      // Round min down to nearest 5 minutes
-      timeWindowMin.setMinutes(Math.floor(timeWindowMin.getMinutes() / 5) * 5, 0, 0);
-      // Round default time down to nearest 5 minutes
-      var defaultTime = new Date(serverTime.getTime());
-      defaultTime.setMinutes(Math.floor(defaultTime.getMinutes() / 5) * 5, 0, 0);
+      if (isClockOn) {
+        // Clock ON: allow any time today, no window constraint
+        timeWindowMin = null;
+        timeWindowMax = null;
 
-      // Set picker to rounded default
-      var hours = String(defaultTime.getHours()).padStart(2, '0');
-      var minutes = String(defaultTime.getMinutes()).padStart(2, '0');
-      timePicker.value = hours + ':' + minutes;
+        // Round default time down to nearest 5 minutes
+        var defaultTime = new Date(serverTime.getTime());
+        defaultTime.setMinutes(Math.floor(defaultTime.getMinutes() / 5) * 5, 0, 0);
 
-      // Update hint with allowed window
-      var minStr = timeWindowMin.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
-      var maxStr = timeWindowMax.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
-      timePickerHint.textContent = 'Allowed: ' + minStr + ' \u2013 ' + maxStr + ' (5 min steps)';
-      timePickerHint.className = 'text-xs text-gray-500 mt-1';
+        var hours = String(defaultTime.getHours()).padStart(2, '0');
+        var minutes = String(defaultTime.getMinutes()).padStart(2, '0');
+        timePicker.value = hours + ':' + minutes;
+
+        timePickerHint.textContent = 'Select your clock-on time (5 min steps)';
+        timePickerHint.className = 'text-xs text-gray-500 mt-1';
+
+        // No min/max constraints
+        timePicker.removeAttribute('min');
+        timePicker.removeAttribute('max');
+      } else {
+        // Clock OFF: ±10 min window
+        timeWindowMin = new Date(serverTime.getTime() - 10 * 60 * 1000);
+        timeWindowMax = new Date(serverTime.getTime());
+
+        // Round min down to nearest 5 minutes
+        timeWindowMin.setMinutes(Math.floor(timeWindowMin.getMinutes() / 5) * 5, 0, 0);
+        // Round default time down to nearest 5 minutes
+        var defaultTime2 = new Date(serverTime.getTime());
+        defaultTime2.setMinutes(Math.floor(defaultTime2.getMinutes() / 5) * 5, 0, 0);
+
+        var h = String(defaultTime2.getHours()).padStart(2, '0');
+        var m = String(defaultTime2.getMinutes()).padStart(2, '0');
+        timePicker.value = h + ':' + m;
+
+        var minStr = timeWindowMin.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
+        var maxStr = timeWindowMax.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
+        timePickerHint.textContent = 'Allowed: ' + minStr + ' \u2013 ' + maxStr + ' (5 min steps)';
+        timePickerHint.className = 'text-xs text-gray-500 mt-1';
+
+        timePicker.min = formatTimeInput(timeWindowMin);
+        timePicker.max = formatTimeInput(timeWindowMax);
+      }
 
     } catch (error) {
       console.error('Failed to get server time:', error);
-      showToast('Using device time (server unavailable). Window is \u00b110 min.', 'info', 5000);
 
-      // Fallback to client time
-      var now = new Date();
-      serverTime = now;
-      timeWindowMin = new Date(now.getTime() - 10 * 60 * 1000);
-      timeWindowMax = new Date(now.getTime());
-
-      // Round min down to nearest 5 minutes
-      timeWindowMin.setMinutes(Math.floor(timeWindowMin.getMinutes() / 5) * 5, 0, 0);
-      var defaultTime = new Date(now.getTime());
-      defaultTime.setMinutes(Math.floor(defaultTime.getMinutes() / 5) * 5, 0, 0);
-
-      var h = String(defaultTime.getHours()).padStart(2, '0');
-      var m = String(defaultTime.getMinutes()).padStart(2, '0');
-      timePicker.value = h + ':' + m;
-
-      var minStr2 = timeWindowMin.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
-      var maxStr2 = timeWindowMax.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
-      timePickerHint.textContent = 'Device time: ' + minStr2 + ' \u2013 ' + maxStr2 + ' (5 min steps)';
-      timePickerHint.className = 'text-xs text-orange-600 mt-1';
+      if (isClockOn) {
+        showToast('Using device time. Select your clock-on time.', 'info', 5000);
+        var now = new Date();
+        serverTime = now;
+        var fallback = new Date(now.getTime());
+        fallback.setMinutes(Math.floor(fallback.getMinutes() / 5) * 5, 0, 0);
+        timePicker.value = String(fallback.getHours()).padStart(2, '0') + ':' + String(fallback.getMinutes()).padStart(2, '0');
+        timePickerHint.textContent = 'Device time \u2014 select your clock-on time (5 min steps)';
+        timePickerHint.className = 'text-xs text-orange-600 mt-1';
+        timePicker.removeAttribute('min');
+        timePicker.removeAttribute('max');
+        timeWindowMin = null;
+        timeWindowMax = null;
+      } else {
+        showToast('Using device time (server unavailable). Window is \u00b110 min.', 'info', 5000);
+        var now2 = new Date();
+        serverTime = now2;
+        timeWindowMin = new Date(now2.getTime() - 10 * 60 * 1000);
+        timeWindowMax = new Date(now2.getTime());
+        timeWindowMin.setMinutes(Math.floor(timeWindowMin.getMinutes() / 5) * 5, 0, 0);
+        var fallback2 = new Date(now2.getTime());
+        fallback2.setMinutes(Math.floor(fallback2.getMinutes() / 5) * 5, 0, 0);
+        timePicker.value = String(fallback2.getHours()).padStart(2, '0') + ':' + String(fallback2.getMinutes()).padStart(2, '0');
+        var minStr2 = timeWindowMin.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
+        var maxStr2 = timeWindowMax.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
+        timePickerHint.textContent = 'Device time: ' + minStr2 + ' \u2013 ' + maxStr2 + ' (5 min steps)';
+        timePickerHint.className = 'text-xs text-orange-600 mt-1';
+        timePicker.min = formatTimeInput(timeWindowMin);
+        timePicker.max = formatTimeInput(timeWindowMax);
+      }
     }
 
     // Set min/max attributes for native time picker constraints
@@ -321,7 +358,9 @@
   }
 
   /**
-   * Validate selected time is within 10-min-past window, rounded to 5 min steps.
+   * Validate selected time.
+   * For clock-on: any valid time (5 min steps, not future)
+   * For clock-off: must be within 10-min-past window (5 min steps)
    * Returns Date object if valid, null if invalid.
    */
   function getSelectedTime() {
@@ -348,7 +387,22 @@
     var selected = new Date(base);
     selected.setHours(hours, minutes, 0, 0);
 
-    // Handle midnight-crossing edge case
+    var isClockOn = !currentShift;
+
+    if (isClockOn) {
+      // Clock ON: allow any time today, but not in the future
+      // Handle midnight-crossing: if selected is way ahead, assume yesterday
+      if (selected.getTime() > base.getTime() + 60 * 1000) {
+        selected.setDate(selected.getDate() - 1);
+      }
+      // Don't allow more than 24 hours in the past
+      if (base.getTime() - selected.getTime() > 24 * 60 * 60 * 1000) {
+        return null;
+      }
+      return selected;
+    }
+
+    // Clock OFF: enforce ±10 min window
     var diffMs = selected.getTime() - base.getTime();
     var tenMinMs = 10 * 60 * 1000;
 
@@ -360,7 +414,6 @@
       diffMs = selected.getTime() - base.getTime();
     }
 
-    // Must be within 10 min in the past, not in the future
     if (diffMs < -tenMinMs || diffMs > 0) {
       return null;
     }
@@ -410,7 +463,12 @@
     var actionBtn = document.getElementById('clock-action-btn');
 
     if (!selectedTime) {
-      showToast('Selected time must be within 10 min in the past, in 5 min steps.', 'error', 5000);
+      var isClockOn2 = !currentShift;
+      if (isClockOn2) {
+        showToast('Please select a valid time (5 min steps, not more than 24h ago).', 'error', 5000);
+      } else {
+        showToast('Selected time must be within 10 min in the past, in 5 min steps.', 'error', 5000);
+      }
       return;
     }
 
@@ -427,11 +485,12 @@
       hideTimePicker();
 
       var baseTime = serverTime || new Date();
-      var adjusted = Math.abs(selectedTime.getTime() - baseTime.getTime()) > 60 * 1000;
-      var isoTime = selectedTime.toISOString();
+      var isClockOn = !currentShift;
 
       if (isClockOn) {
-        var newShift = await window.ClockDB.clockOn(isoTime, adjusted);
+        var adjusted = Math.abs(selectedTime.getTime() - baseTime.getTime()) > 60 * 1000;
+        var isoTime = selectedTime.toISOString();
+        var newShift = await window.ClockDB.clockOn(isoTime, adjusted, null, true);
         currentShift = newShift;
         updateStatusDisplay();
 
