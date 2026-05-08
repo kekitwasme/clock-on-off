@@ -250,16 +250,16 @@ BEGIN
 
     RETURN QUERY
     SELECT
-        r.id,
-        r.staff_id,
+        r.id AS id,
+        r.staff_id AS staff_id,
         s.name AS staff_name,
-        r.roster_date,
-        r.start_time,
-        r.end_time,
-        r.notes,
-        r.shift_type,
-        r.created_at,
-        r.updated_at
+        r.roster_date AS roster_date,
+        r.start_time AS start_time,
+        r.end_time AS end_time,
+        r.notes AS notes,
+        r.shift_type AS shift_type,
+        r.created_at AS created_at,
+        r.updated_at AS updated_at
     FROM rosters r
     JOIN staff s ON s.id = r.staff_id
     WHERE r.roster_date BETWEEN p_start_date AND p_end_date
@@ -269,6 +269,7 @@ END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
 -- Recreate get_my_roster (session-based, no p_staff_id param, returns shift_type)
+DROP FUNCTION IF EXISTS get_my_roster(INTEGER);
 CREATE FUNCTION get_my_roster(
     p_days_ahead INTEGER DEFAULT 30
 )
@@ -309,16 +310,16 @@ BEGIN
 
     RETURN QUERY
     SELECT
-        r.id,
-        r.staff_id,
+        r.id AS id,
+        r.staff_id AS staff_id,
         s.name AS staff_name,
-        r.roster_date,
-        r.start_time,
-        r.end_time,
-        r.notes,
-        r.shift_type,
-        r.created_at,
-        r.updated_at
+        r.roster_date AS roster_date,
+        r.start_time AS start_time,
+        r.end_time AS end_time,
+        r.notes AS notes,
+        r.shift_type AS shift_type,
+        r.created_at AS created_at,
+        r.updated_at AS updated_at
     FROM rosters r
     JOIN staff s ON s.id = r.staff_id
     WHERE r.staff_id = v_staff_id
