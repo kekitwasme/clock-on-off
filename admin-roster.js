@@ -1,7 +1,7 @@
 /**
  * admin-roster.js - Roster Module
  *
- * Per-staff card view with lunch/dinner sections.
+ * Day-grouped roster view with lunch/dinner sections per day.
  * Handles week navigation, CRUD operations, and CSV import.
  */
 
@@ -15,6 +15,9 @@
 
   // ===== Constants =====
   var DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  // Staff list cached for modal dropdown
+  var _staffListCache = [];
 
   // ===== Public API =====
 
@@ -50,6 +53,7 @@
 
     try {
       var staffList = await window.ClockDB.getAllStaff();
+      _staffListCache = staffList;
       var rosterEntries = await window.ClockDB.getRosterForWeek(
         formatDateKey(currentWeekStart),
         formatDateKey(weekEnd)
@@ -76,101 +80,123 @@
     return currentWeekStart;
   }
 
-  // ===== Card Layout =====
+  // ===== Day-Grouped Layout =====
+
+  var FULL_DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
   function buildRosterCards(staffList, rosterEntries) {
     var wrapper = document.createElement('div');
-    wrapper.className = 'roster-cards';
+    wrapper.className = 'roster-day-cards';
 
     if (staffList.length === 0) {
       wrapper.innerHTML = '<p class="text-gray-500 text-center py-4">No staff found.</p>';
       return wrapper;
     }
 
-    staffList.forEach(function(staff) {
-      var card = buildStaffCard(staff, rosterEntries);
-      wrapper.appendChild(card);
-    });
+    for (var d = 0; d < 7; d++) {
+      var dayDate = addDays(currentWeekStart, d);
+      var dateKey = formatDateKey(dayDate);
+      var section = buildDaySection(dayDate, dateKey, rosterEntries, staffList);
+      wrapper.appendChild(section);
+    }
 
     return wrapper;
   }
 
-  function buildStaffCard(staff, rosterEntries) {
+  function buildDaySection(dayDate, dateKey, rosterEntries, staffList) {
     var card = document.createElement('div');
-    card.className = 'roster-staff-card';
+    card.className = 'roster-day-card';
 
-    // Staff name header
+    // Day header
     var header = document.createElement('div');
-    header.className = 'roster-staff-card-header';
-    header.innerHTML = '<span class="roster-staff-card-name">' + escapeHtml(staff.name) + '</span>';
+    header.className = 'roster-day-header';
+    var dayIndex = (dayDate.getDay() + 6) % 7; // Mon=0 .. Sun=6
+    header.innerHTML =
+      '<span class="roster-day-header-name">' + FULL_DAY_NAMES[dayIndex] + '</span>' +
+      '<span class="roster-day-header-date">' + formatDisplayDate(dayDate) + '</span>';
     card.appendChild(header);
 
-    // Day labels row
-    var dayRow = document.createElement('div');
-    dayRow.className = 'roster-day-row';
-    dayRow.innerHTML = '<div class="roster-day-label-cell"></div>';
-    for (var d = 0; d < 7; d++) {
-      var dayDate = addDays(currentWeekStart, d);
-      var dayCell = document.createElement('div');
-      dayCell.className = 'roster-day-label';
-      dayCell.innerHTML =
-        '<span class="roster-day-name">' + DAY_NAMES[d] + '</span>' +
-        '<span class="roster-day-num">' + dayDate.getDate() + '</span>';
-      dayRow.appendChild(dayCell);
-    }
-    card.appendChild(dayRow);
+    // Lunch section
+    var lunchSection = buildShiftSection('lunch', dateKey, rosterEntries, staffList);
+    card.appendChild(lunchSection);
 
-    // Lunch row
-    var lunchRow = buildShiftRow(staff, 'lunch', rosterEntries);
-    card.appendChild(lunchRow);
-
-    // Dinner row
-    var dinnerRow = buildShiftRow(staff, 'dinner', rosterEntries);
-    card.appendChild(dinnerRow);
+    // Dinner section
+    var dinnerSection = buildShiftSection('dinner', dateKey, rosterEntries, staffList);
+    card.appendChild(dinnerSection);
 
     return card;
   }
 
-  function buildShiftRow(staff, shiftType, rosterEntries) {
-    var row = document.createElement('div');
-    row.className = 'roster-shift-row';
+  function buildShiftSection(shiftType, dateKey, rosterEntries, staffList) {
+    var section = document.createElement('div');
+    section.className = 'roster-shift-section';
 
-    // Shift label
-    var label = document.createElement('div');
-    label.className = 'roster-shift-label';
-    label.textContent = capitalize(shiftType);
-    row.appendChild(label);
+    // Shift header
+    var sectionHeader = document.createElement('div');
+    sectionHeader.className = 'roster-shift-section-header roster-shift-section-header-' + shiftType;
+    sectionHeader.innerHTML =
+      '<span class="roster-shift-section-label">' + capitalize(shiftType) + '</span>' +
+      '<button class="roster-add-shift" data-date="' + dateKey + '" data-shift="' + shiftType + '">+ Add ' + capitalize(shiftType) + '</button>';
+    section.appendChild(sectionHeader);
 
-    // 7 day cells
-    for (var d = 0; d < 7; d++) {
-      var cellDate = addDays(currentWeekStart, d);
-      var dateKey = formatDateKey(cellDate);
-      var entry = findRosterEntry(rosterEntries, staff.id, dateKey, shiftType);
-      var cell = buildShiftCell(staff, dateKey, shiftType, entry);
-      row.appendChild(cell);
-    }
-
-    return row;
-  }
-
-  function buildShiftCell(staff, dateKey, shiftType, entry) {
-    var cell = document.createElement('div');
-    cell.className = 'roster-shift-cell';
-
-    if (entry) {
-      cell.classList.add('roster-shift-cell-scheduled');
-      cell.innerHTML =
-        '<span class="roster-time">' + entry.start_time.slice(0, 5) + '–' + entry.end_time.slice(0, 5) + '</span>' +
-        (entry.notes ? '<span class="roster-notes">' + escapeHtml(entry.notes) + '</span>' : '');
-    } else {
-      cell.innerHTML = '<span class="roster-add">+</span>';
-    }
-
-    cell.addEventListener('click', function() {
-      openRosterModal(staff, dateKey, shiftType, entry);
+    // Collect entries for this day+shift
+    var entries = rosterEntries.filter(function(r) {
+      return r.roster_date === dateKey && r.shift_type === shiftType;
     });
 
-    return cell;
+    if (entries.length === 0) {
+      var empty = document.createElement('div');
+      empty.className = 'roster-empty-section';
+      empty.textContent = 'No ' + shiftType + ' shifts scheduled';
+      section.appendChild(empty);
+    } else {
+      entries.forEach(function(entry) {
+        var staff = staffList.find(function(s) { return s.id === entry.staff_id; });
+        if (!staff) return;
+        var entryEl = buildShiftEntry(entry, staff, shiftType);
+        section.appendChild(entryEl);
+      });
+    }
+
+    // Attach click handler for add button
+    var addBtn = sectionHeader.querySelector('.roster-add-shift');
+    if (addBtn) {
+      addBtn.addEventListener('click', function() {
+        // Open modal with no staff pre-selected — shows staff dropdown
+        openRosterModal({ id: '', name: '' }, dateKey, shiftType, null);
+      });
+    }
+
+    return section;
+  }
+
+  function buildShiftEntry(entry, staff, shiftType) {
+    var el = document.createElement('div');
+    el.className = 'roster-entry';
+
+    var nameSpan = document.createElement('span');
+    nameSpan.className = 'roster-entry-name';
+    nameSpan.textContent = staff.name;
+    el.appendChild(nameSpan);
+
+    var timeSpan = document.createElement('span');
+    timeSpan.className = 'roster-entry-time';
+    timeSpan.textContent = entry.start_time.slice(0, 5) + ' – ' + entry.end_time.slice(0, 5);
+    el.appendChild(timeSpan);
+
+    if (entry.notes) {
+      var notesSpan = document.createElement('span');
+      notesSpan.className = 'roster-entry-notes';
+      notesSpan.textContent = entry.notes;
+      el.appendChild(notesSpan);
+    }
+
+    // Click opens edit modal
+    el.addEventListener('click', function() {
+      openRosterModal(staff, entry.roster_date, shiftType, entry);
+    });
+
+    return el;
   }
 
   function findRosterEntry(entries, staffId, dateKey, shiftType) {
@@ -238,10 +264,33 @@
     var modal = document.getElementById('roster-modal');
     if (!modal) return;
 
+    var isAddNoStaff = !entry && (!staff || !staff.id);
+
+    // Show staff selector dropdown for add-without-staff, staff name display otherwise
+    var displayGroup = document.getElementById('roster-staff-display-group');
+    var selectGroup = document.getElementById('roster-staff-select-group');
+    var staffSelect = document.getElementById('roster-staff-select');
+
+    if (isAddNoStaff) {
+      displayGroup.classList.add('hidden');
+      selectGroup.classList.remove('hidden');
+      staffSelect.innerHTML = '<option value="">Select staff member</option>';
+      _staffListCache.forEach(function(s) {
+        var opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = s.name;
+        staffSelect.appendChild(opt);
+      });
+      staffSelect.value = '';
+    } else {
+      displayGroup.classList.remove('hidden');
+      selectGroup.classList.add('hidden');
+      document.getElementById('roster-staff-input').value = staff.id;
+      var staffDisplay = document.getElementById('roster-staff-display');
+      if (staffDisplay) staffDisplay.textContent = staff.name;
+    }
+
     document.getElementById('roster-id').value = entry ? entry.id : '';
-    document.getElementById('roster-staff-input').value = staff.id;
-    var staffDisplay = document.getElementById('roster-staff-display');
-    if (staffDisplay) staffDisplay.textContent = staff.name;
     document.getElementById('roster-date-input').value = dateKey;
     var startInput = document.getElementById('roster-start-input');
     var endInput = document.getElementById('roster-end-input');
@@ -270,7 +319,13 @@
 
   async function submitRosterForm() {
     var rosterId = document.getElementById('roster-id').value;
-    var staffId = document.getElementById('roster-staff-input').value;
+    var staffId;
+    var selectGroup = document.getElementById('roster-staff-select-group');
+    if (!selectGroup.classList.contains('hidden')) {
+      staffId = document.getElementById('roster-staff-select').value;
+    } else {
+      staffId = document.getElementById('roster-staff-input').value;
+    }
     var date = document.getElementById('roster-date-input').value;
     var start = document.getElementById('roster-start-input').value;
     var end = document.getElementById('roster-end-input').value;
@@ -278,7 +333,11 @@
     var shiftType = document.getElementById('roster-shift-type-input').value || 'lunch';
 
     if (!staffId || !date || !start || !end) {
-      showToast('Staff, date, start time, and end time are required.', 'error');
+      if (!staffId) {
+        showToast('Please select a staff member.', 'error');
+      } else {
+        showToast('Staff, date, start time, and end time are required.', 'error');
+      }
       return;
     }
 
