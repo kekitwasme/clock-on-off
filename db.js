@@ -779,7 +779,7 @@
   function calculateDuration(clockIn, clockOut) {
     var start = new Date(clockIn).getTime();
     var end = clockOut ? new Date(clockOut).getTime() : Date.now();
-    return end - start;
+    return Math.max(0, end - start);
   }
 
   /**
