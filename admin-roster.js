@@ -67,6 +67,10 @@
       }
     }
 
+    // Save scroll position before re-rendering
+    var scrollParent = getScrollParent(container);
+    var savedScrollTop = scrollParent ? scrollParent.scrollTop : 0;
+
     container.innerHTML = '';
     if (loading) loading.classList.remove('hidden');
     if (empty) empty.classList.add('hidden');
@@ -82,6 +86,11 @@
 
       var wrapper = buildRosterCards(staffList, rosterEntries);
       container.appendChild(wrapper);
+
+      // Restore scroll position after re-rendering
+      if (scrollParent) {
+        scrollParent.scrollTop = savedScrollTop;
+      }
 
       if (rosterEntries.length === 0 && empty) {
         empty.classList.remove('hidden');
@@ -699,6 +708,20 @@
   }
 
   // ===== Utilities =====
+
+  function getScrollParent(el) {
+    if (!el) return null;
+    var parent = el.parentElement;
+    while (parent) {
+      var style = window.getComputedStyle(parent);
+      var overflow = style.overflow + style.overflowY;
+      if (/(auto|scroll)/.test(overflow)) {
+        return parent;
+      }
+      parent = parent.parentElement;
+    }
+    return document.documentElement;
+  }
 
   function getWeekStart(date) {
     var d = new Date(date);
