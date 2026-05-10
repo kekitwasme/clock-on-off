@@ -13,7 +13,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="MK ClockOn">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="styles.css?v=37">
+    <link rel="stylesheet" href="styles.css?v=40">
 </head>
 <body class="bg-gray-100 min-h-screen">
     <!-- Loading State -->
@@ -224,7 +224,8 @@
                     <button id="roster-next-week" class="bg-gray-200 text-gray-800 px-3 py-2 rounded text-sm font-semibold hover:bg-gray-300">Next →</button>
                 </div>
                 <button id="roster-current-week" class="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold mb-2 hover:bg-blue-700 text-sm">Current Week</button>
-                <button id="roster-import-btn" class="w-full bg-green-600 text-white py-2 rounded-lg font-semibold mb-4 hover:bg-green-700 text-sm">📥 Import from CSV / Google Sheets</button>
+                <button id="roster-import-btn" class="w-full bg-green-600 text-white py-2 rounded-lg font-semibold mb-2 hover:bg-green-700 text-sm">📥 Import from CSV / Google Sheets</button>
+                <button id="roster-copy-week-btn" class="w-full bg-indigo-600 text-white py-2 rounded-lg font-semibold mb-4 hover:bg-indigo-700 text-sm">📋 Copy Last Week's Roster</button>
                 <div id="roster-grid-container">
                     <!-- Roster grid rendered here -->
                 </div>
@@ -260,13 +261,14 @@
                 </div>
                 <div class="mb-4">
                     <label class="block text-sm text-gray-600 mb-1">PIN (4-6 digits)</label>
-                    <input type="tel" id="staff-pin-input" class="w-full p-3 border border-gray-300 rounded-lg" pattern="[0-9]{4,6}" required>
+                    <input type="tel" id="staff-pin-input" class="w-full p-3 border border-gray-300 rounded-lg" pattern="[0-9]{4,6}">
                 </div>
                 <div class="mb-4">
                     <label class="block text-sm text-gray-600 mb-1">Role</label>
                     <select id="staff-role-input" class="w-full p-3 border border-gray-300 rounded-lg">
                         <option value="staff">Staff</option>
                         <option value="admin">Admin</option>
+                        <option value="observer">Observer</option>
                     </select>
                 </div>
                 <div class="mb-4">
@@ -411,12 +413,12 @@ Pem,2026-05-07,17:00,22:00,Closing"></textarea>
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
-    <script src="db.js?v=37"></script>
-    <script src="auth.js?v=37"></script>
-    <script src="app.js?v=37"></script>
-    <script src="admin-timesheet.js?v=37"></script>
-    <script src="admin-roster.js?v=37"></script>
-    <script src="admin.js?v=37"></script>
+    <script src="db.js?v=40"></script>
+    <script src="auth.js?v=40"></script>
+    <script src="app.js?v=40"></script>
+    <script src="admin-timesheet.js?v=40"></script>
+    <script src="admin-roster.js?v=40"></script>
+    <script src="admin.js?v=40"></script>
     <script>
     (function() {
       'use strict';

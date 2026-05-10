@@ -545,6 +545,7 @@ nav {
     to { transform: rotate(360deg); }
 }
 
+/* Loading overlay */
 /* ===== Admin Tabs ===== */
 .admin-tab {
     transition: all 0.2s ease;

@@ -278,15 +278,17 @@
    */
   async function updateStaff(staffId, updates) {
     var client = getClient();
-    var result = await client.rpc('update_staff_with_pin', {
+    var params = {
       p_staff_id: staffId,
       p_name: updates.name !== undefined ? updates.name : null,
-      p_pin: updates.pin !== undefined ? updates.pin : null,
+      p_pin: updates.pin || null,
       p_role: updates.role !== undefined ? updates.role : null,
       p_active: updates.active !== undefined ? updates.active : null,
       p_expected_start_time: updates.expectedStartTime !== undefined ? (updates.expectedStartTime || null) : null,
       p_expected_end_time: updates.expectedEndTime !== undefined ? (updates.expectedEndTime || null) : null
-    });
+    };
+
+    var result = await client.rpc('update_staff_with_pin', params);
 
     if (result.error) {
       throw new Error('Failed to update staff: ' + result.error.message);
@@ -873,6 +875,20 @@
     return result.data;
   }
 
+  /**
+   * Get active staff for roster display (excludes admins and observers).
+   * Uses a SECURITY DEFINER RPC so observers can also query this.
+   * @returns {Promise<Array>}
+   */
+  async function getRosterStaff() {
+    var client = getClient();
+    var result = await client.rpc('get_roster_staff');
+    if (result.error) {
+      throw new Error('Failed to get roster staff: ' + result.error.message);
+    }
+    return result.data || [];
+  }
+
   // ===== Expose globally =====
   window.ClockDB = {
     init: init,
@@ -913,6 +929,7 @@
     formatDateTime: formatDateTime,
     formatTime: formatTime,
     formatDate: formatDate,
-    csvEscape: csvEscape
+    csvEscape: csvEscape,
+    getRosterStaff: getRosterStaff
   };
 })();

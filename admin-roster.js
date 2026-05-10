@@ -22,16 +22,22 @@
     initWeekNav();
     initRosterModal();
     initImportModal();
+    initCopyWeekBtn();
   }
 
   async function load() {
     if (isLoading) return;
     isLoading = true;
 
+    var session = window.ClockAuth ? window.ClockAuth.getSession() : null;
+    var isObserverUser = session && session.role === 'observer';
+
     var container = document.getElementById('roster-grid-container');
     var loading = document.getElementById('roster-loading');
     var empty = document.getElementById('roster-empty');
     var weekLabel = document.getElementById('roster-week-label');
+    var importBtn = document.getElementById('roster-import-btn');
+    var copyWeekBtn = document.getElementById('roster-copy-week-btn');
 
     if (!container) { isLoading = false; return; }
 
@@ -44,12 +50,29 @@
       weekLabel.textContent = formatDisplayDate(currentWeekStart) + ' — ' + formatDisplayDate(weekEnd);
     }
 
+    // Hide import button for observers
+    if (importBtn) {
+      if (isObserverUser) {
+        importBtn.classList.add('hidden');
+      } else {
+        importBtn.classList.remove('hidden');
+      }
+    }
+    // Hide copy-week button for observers
+    if (copyWeekBtn) {
+      if (isObserverUser) {
+        copyWeekBtn.classList.add('hidden');
+      } else {
+        copyWeekBtn.classList.remove('hidden');
+      }
+    }
+
     container.innerHTML = '';
     if (loading) loading.classList.remove('hidden');
     if (empty) empty.classList.add('hidden');
 
     try {
-      var staffList = await window.ClockDB.getAllStaff();
+      var staffList = await window.ClockDB.getRosterStaff();
       var rosterEntries = await window.ClockDB.getRosterForWeek(
         formatDateKey(currentWeekStart),
         formatDateKey(weekEnd)
@@ -87,15 +110,18 @@
       return wrapper;
     }
 
+    var session = window.ClockAuth ? window.ClockAuth.getSession() : null;
+    var isObserverUser = session && session.role === 'observer';
+
     staffList.forEach(function(staff) {
-      var card = buildStaffCard(staff, rosterEntries);
+      var card = buildStaffCard(staff, rosterEntries, isObserverUser);
       wrapper.appendChild(card);
     });
 
     return wrapper;
   }
 
-  function buildStaffCard(staff, rosterEntries) {
+  function buildStaffCard(staff, rosterEntries, isObserverUser) {
     var card = document.createElement('div');
     card.className = 'roster-staff-card';
 
@@ -121,17 +147,17 @@
     card.appendChild(dayRow);
 
     // Lunch row
-    var lunchRow = buildShiftRow(staff, 'lunch', rosterEntries);
+    var lunchRow = buildShiftRow(staff, 'lunch', rosterEntries, isObserverUser);
     card.appendChild(lunchRow);
 
     // Dinner row
-    var dinnerRow = buildShiftRow(staff, 'dinner', rosterEntries);
+    var dinnerRow = buildShiftRow(staff, 'dinner', rosterEntries, isObserverUser);
     card.appendChild(dinnerRow);
 
     return card;
   }
 
-  function buildShiftRow(staff, shiftType, rosterEntries) {
+  function buildShiftRow(staff, shiftType, rosterEntries, isObserverUser) {
     var row = document.createElement('div');
     row.className = 'roster-shift-row';
 
@@ -146,14 +172,14 @@
       var cellDate = addDays(currentWeekStart, d);
       var dateKey = formatDateKey(cellDate);
       var entry = findRosterEntry(rosterEntries, staff.id, dateKey, shiftType);
-      var cell = buildShiftCell(staff, dateKey, shiftType, entry);
+      var cell = buildShiftCell(staff, dateKey, shiftType, entry, isObserverUser);
       row.appendChild(cell);
     }
 
     return row;
   }
 
-  function buildShiftCell(staff, dateKey, shiftType, entry) {
+  function buildShiftCell(staff, dateKey, shiftType, entry, isObserverUser) {
     var cell = document.createElement('div');
     cell.className = 'roster-shift-cell';
 
@@ -166,9 +192,13 @@
       cell.innerHTML = '<span class="roster-add">+</span>';
     }
 
-    cell.addEventListener('click', function() {
-      openRosterModal(staff, dateKey, shiftType, entry);
-    });
+    if (!isObserverUser) {
+      cell.addEventListener('click', function() {
+        openRosterModal(staff, dateKey, shiftType, entry);
+      });
+    } else {
+      cell.style.cursor = 'default';
+    }
 
     return cell;
   }
@@ -238,6 +268,9 @@
     var modal = document.getElementById('roster-modal');
     if (!modal) return;
 
+    var session = window.ClockAuth ? window.ClockAuth.getSession() : null;
+    var isObserverUser = session && session.role === 'observer';
+
     document.getElementById('roster-id').value = entry ? (entry.roster_id || entry.id) : '';
     document.getElementById('roster-staff-input').value = staff.id;
     var staffDisplay = document.getElementById('roster-staff-display');
@@ -245,8 +278,8 @@
     document.getElementById('roster-date-input').value = dateKey;
     var startInput = document.getElementById('roster-start-input');
     var endInput = document.getElementById('roster-end-input');
-    startInput.value = entry ? entry.start_time.slice(0, 5) : (shiftType === 'lunch' ? '11:00' : '17:00');
-    endInput.value = entry ? entry.end_time.slice(0, 5) : (shiftType === 'lunch' ? '15:00' : '22:00');
+    startInput.value = entry ? entry.start_time.slice(0, 5) : (shiftType === 'lunch' ? '10:30' : '17:00');
+    endInput.value = entry ? entry.end_time.slice(0, 5) : (shiftType === 'lunch' ? '15:00' : '21:00');
     document.getElementById('roster-notes-input').value = entry ? (entry.notes || '') : '';
     document.getElementById('roster-shift-type-input').value = shiftType;
 
@@ -258,7 +291,31 @@
 
     document.getElementById('roster-modal-title').textContent =
       (entry ? 'Edit' : 'Add') + ' ' + capitalize(shiftType) + ' Roster';
-    document.getElementById('roster-delete-btn').classList.toggle('hidden', !entry);
+
+    // Observer: hide delete and save buttons, disable inputs
+    var deleteBtn = document.getElementById('roster-delete-btn');
+    var saveBtn = modal.querySelector('button[type="submit"]');
+    var cancelBtn = document.getElementById('roster-modal-cancel');
+    if (isObserverUser) {
+      if (deleteBtn) deleteBtn.classList.add('hidden');
+      if (saveBtn) saveBtn.classList.add('hidden');
+      startInput.disabled = true;
+      endInput.disabled = true;
+      document.getElementById('roster-date-input').disabled = true;
+      document.getElementById('roster-notes-input').disabled = true;
+      if (displaySelect) displaySelect.disabled = true;
+      // Change cancel to "Close" for observer
+      if (cancelBtn) cancelBtn.textContent = 'Close';
+    } else {
+      if (deleteBtn) deleteBtn.classList.toggle('hidden', !entry);
+      if (saveBtn) saveBtn.classList.remove('hidden');
+      startInput.disabled = false;
+      endInput.disabled = false;
+      document.getElementById('roster-date-input').disabled = false;
+      document.getElementById('roster-notes-input').disabled = false;
+      if (displaySelect) displaySelect.disabled = true; // shift type is always disabled for editing
+      if (cancelBtn) cancelBtn.textContent = 'Cancel';
+    }
 
     modal.classList.remove('hidden');
   }
@@ -682,6 +739,118 @@
   function showToast(message, type) {
     if (window.ClockApp && window.ClockApp.showToast) {
       window.ClockApp.showToast(message, type);
+    }
+  }
+
+  // ===== Copy Last Week's Roster =====
+
+  function initCopyWeekBtn() {
+    var btn = document.getElementById('roster-copy-week-btn');
+    if (!btn) return;
+    btn.addEventListener('click', function() {
+      copyLastWeekRoster();
+    });
+  }
+
+  async function copyLastWeekRoster() {
+    var session = window.ClockAuth ? window.ClockAuth.getSession() : null;
+    if (!session || session.role === 'observer') {
+      showToast('Only admins can copy roster entries.', 'error');
+      return;
+    }
+
+    if (!currentWeekStart) {
+      showToast('No week selected.', 'error');
+      return;
+    }
+
+    var prevWeekStart = addDays(currentWeekStart, -7);
+    var prevWeekEnd = addDays(prevWeekStart, 6);
+    var currentWeekEnd = addDays(currentWeekStart, 6);
+
+    if (!window.confirm('Copy roster entries from ' + formatDisplayDate(prevWeekStart) + ' to ' + formatDisplayDate(prevWeekEnd) + ' into this week?')) {
+      return;
+    }
+
+    // Disable button and show loading state
+    var copyBtn = document.getElementById('roster-copy-week-btn');
+    var origBtnText = copyBtn ? copyBtn.textContent : '';
+    if (copyBtn) {
+      copyBtn.disabled = true;
+      copyBtn.textContent = 'Copying...';
+    }
+
+    try {
+      // Fetch previous week's roster
+      var prevEntries = await window.ClockDB.getRosterForWeek(
+        formatDateKey(prevWeekStart),
+        formatDateKey(prevWeekEnd)
+      );
+
+      if (!prevEntries || prevEntries.length === 0) {
+        showToast('No roster entries found for last week.', 'info');
+        return;
+      }
+
+      // Fetch current week's roster to check for conflicts
+      var currentEntries = await window.ClockDB.getRosterForWeek(
+        formatDateKey(currentWeekStart),
+        formatDateKey(currentWeekEnd)
+      );
+
+      var created = 0;
+      var skipped = 0;
+      var errors = 0;
+
+      for (var i = 0; i < prevEntries.length; i++) {
+        var entry = prevEntries[i];
+        // Shift the date forward by 7 days
+        var origDate = new Date(entry.roster_date + 'T00:00:00');
+        var newDate = addDays(origDate, 7);
+        var newDateKey = formatDateKey(newDate);
+
+        // Check if entry already exists for this staff/date/shift_type
+        var conflict = currentEntries.find(function(e) {
+          return (e.roster_staff_id || e.staff_id) === (entry.roster_staff_id || entry.staff_id)
+            && e.roster_date === newDateKey
+            && e.shift_type === entry.shift_type;
+        });
+
+        if (conflict) {
+          skipped++;
+          continue;
+        }
+
+        try {
+          await window.ClockDB.createRosterEntry({
+            staffId: entry.roster_staff_id || entry.staff_id,
+            rosterDate: newDateKey,
+            startTime: entry.start_time,
+            endTime: entry.end_time,
+            notes: entry.notes || null,
+            shiftType: entry.shift_type || 'lunch'
+          });
+          created++;
+        } catch (err) {
+          errors++;
+          console.error('Failed to copy roster entry:', err);
+        }
+      }
+
+      var msg = 'Copied ' + created + ' entries';
+      if (skipped > 0) msg += ', skipped ' + skipped + ' (already exist)';
+      if (errors > 0) msg += ', ' + errors + ' errors';
+      showToast(msg, errors > 0 ? 'warning' : 'success');
+      isLoading = false; // Reset guard so load() proceeds
+      load();
+    } catch (err) {
+      console.error('Failed to copy last week roster:', err);
+      showToast(err.message || 'Failed to copy roster.', 'error');
+    } finally {
+      if (copyBtn) {
+        copyBtn.disabled = false;
+        copyBtn.textContent = origBtnText;
+      }
     }
   }
 

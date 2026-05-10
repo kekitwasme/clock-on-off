@@ -22,12 +22,18 @@
     if (!adminBtn) return;
 
     adminBtn.addEventListener('click', function() {
-      if (!window.ClockAuth || !window.ClockAuth.isAdmin()) {
-        showToast('Access denied. Admin role required.', 'error');
+      if (!window.ClockAuth || !window.ClockAuth.isAdminOrObserver()) {
+        showToast('Access denied. Admin or Observer role required.', 'error');
         return;
       }
       window.ClockAuth.showScreen('admin');
-      loadAdminStaff();
+      // Load the default tab based on role
+      var session = window.ClockAuth.getSession();
+      if (session && session.role === 'observer') {
+        window.ClockAdminRoster.load();
+      } else {
+        loadAdminStaff();
+      }
     });
   }
 
@@ -41,7 +47,53 @@
 
   // ===== Admin Tabs =====
 
+  var tabsInitialized = false;
+
   function initAdminTabs() {
+    // Show/hide tabs based on role (always refresh)
+    var session = window.ClockAuth ? window.ClockAuth.getSession() : null;
+    var role = session ? session.role : null;
+    var isObserverUser = role === 'observer';
+
+    // First, show all tabs (reset from any previous observer hiding)
+    document.querySelectorAll('.admin-tab').forEach(function(tab) {
+      tab.style.display = '';
+    });
+
+    if (isObserverUser) {
+      // Hide Staff, Timesheets, Audit tabs for observers
+      document.querySelectorAll('.admin-tab[data-tab="staff"], .admin-tab[data-tab="timesheets"], .admin-tab[data-tab="audit"]').forEach(function(tab) {
+        tab.style.display = 'none';
+      });
+      // Hide Staff, Timesheets, Audit content panels
+      var staffTab = document.getElementById('admin-staff-tab');
+      if (staffTab) staffTab.classList.add('hidden');
+      var tsTab = document.getElementById('admin-timesheets-tab');
+      if (tsTab) tsTab.classList.add('hidden');
+      var auditTab = document.getElementById('admin-audit-tab');
+      if (auditTab) auditTab.classList.add('hidden');
+      // Show Roster tab content
+      var rosterTab = document.getElementById('admin-roster-tab');
+      if (rosterTab) rosterTab.classList.remove('hidden');
+      // Make the Roster tab active
+      document.querySelectorAll('.admin-tab').forEach(function(t) {
+        t.classList.remove('active');
+        t.className = 'admin-tab flex-1 py-2 px-3 bg-gray-200 text-gray-800 rounded text-sm whitespace-nowrap';
+      });
+      var rosterTabBtn = document.querySelector('.admin-tab[data-tab="roster"]');
+      if (rosterTabBtn) {
+        rosterTabBtn.classList.add('active');
+        rosterTabBtn.className = 'admin-tab active flex-1 py-2 px-3 bg-gray-800 text-white rounded text-sm whitespace-nowrap';
+      }
+      // Hide Add Staff button for observers
+      var addStaffBtn = document.getElementById('add-staff-btn');
+      if (addStaffBtn) addStaffBtn.classList.add('hidden');
+    }
+
+    // Only bind click handlers once
+    if (tabsInitialized) return;
+    tabsInitialized = true;
+
     document.querySelectorAll('.admin-tab').forEach(function(tab) {
       tab.addEventListener('click', function() {
         var tabName = tab.dataset.tab;
@@ -103,6 +155,8 @@
 
     var roleBadge = staff.role === 'admin'
       ? '<span class="text-xs bg-gray-800 text-white px-2 py-1 rounded">Admin</span>'
+      : staff.role === 'observer'
+      ? '<span class="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">Observer</span>'
       : '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Staff</span>';
 
     var statusBadge = staff.active
@@ -373,12 +427,14 @@
   // ===== Main Initialisation =====
 
   function initAdmin() {
+    // Always refresh tab visibility (role may change between logins)
+    initAdminTabs();
+
     if (adminInitialized) return;
     adminInitialized = true;
 
     initAdminButton();
     initAdminBack();
-    initAdminTabs();
     initStaffModal();
 
     // Delegate to timesheet and roster modules

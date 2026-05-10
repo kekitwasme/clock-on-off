@@ -118,7 +118,6 @@
 
     try {
       var staffList = await window.ClockDB.getActiveStaffNames();
-      // Already filtered to active by the RPC
 
       // Clear existing options except the placeholder
       while (selector.options.length > 1) {
@@ -277,18 +276,30 @@
     var nameEl = document.getElementById('staff-name');
     if (nameEl) nameEl.textContent = staffData.name;
 
-    // Admin button visibility
+    // Admin/observer button visibility
     var adminBtn = document.getElementById('admin-panel-btn');
     if (adminBtn) {
-      if (staffData.role === 'admin') {
+      if (staffData.role === 'admin' || staffData.role === 'observer') {
         adminBtn.classList.remove('hidden');
       } else {
         adminBtn.classList.add('hidden');
       }
     }
 
-    // Switch screen
-    showScreen('app');
+    // Switch screen — admins/observers go straight to admin panel
+    if (staffData.role === 'admin' || staffData.role === 'observer') {
+      showScreen('admin');
+      if (window.ClockAdmin && typeof window.ClockAdmin.initAdmin === 'function') {
+        window.ClockAdmin.initAdmin();
+      }
+      // Both admin and observer: load roster tab by default
+      activateRosterTab();
+      if (window.ClockAdminRoster) {
+        window.ClockAdminRoster.load();
+      }
+    } else {
+      showScreen('app');
+    }
 
     // Notify other modules
     window.dispatchEvent(new CustomEvent('session:login', { detail: currentSession }));
@@ -352,7 +363,7 @@
 
       var adminBtn = document.getElementById('admin-panel-btn');
       if (adminBtn) {
-        if (currentSession.role === 'admin') {
+        if (currentSession.role === 'admin' || currentSession.role === 'observer') {
           adminBtn.classList.remove('hidden');
         } else {
           adminBtn.classList.add('hidden');
@@ -373,6 +384,14 @@
 
   function isAdmin() {
     return !!(currentSession && currentSession.role === 'admin');
+  }
+
+  function isObserver() {
+    return !!(currentSession && currentSession.role === 'observer');
+  }
+
+  function isAdminOrObserver() {
+    return !!(currentSession && (currentSession.role === 'admin' || currentSession.role === 'observer'));
   }
 
   async function logout() {
@@ -413,6 +432,26 @@
     window.dispatchEvent(new CustomEvent('session:logout'));
   }
 
+  // ===== Activate Roster Tab =====
+
+  function activateRosterTab() {
+    // Make the Roster tab visually active and show its content
+    document.querySelectorAll('.admin-tab').forEach(function(t) {
+      t.classList.remove('active');
+      t.className = 'admin-tab flex-1 py-2 px-3 bg-gray-200 text-gray-800 rounded text-sm whitespace-nowrap';
+    });
+    var rosterTabBtn = document.querySelector('.admin-tab[data-tab="roster"]');
+    if (rosterTabBtn) {
+      rosterTabBtn.classList.add('active');
+      rosterTabBtn.className = 'admin-tab active flex-1 py-2 px-3 bg-gray-800 text-white rounded text-sm whitespace-nowrap';
+    }
+    document.querySelectorAll('.admin-tab-content').forEach(function(content) {
+      content.classList.add('hidden');
+    });
+    var rosterContent = document.getElementById('admin-roster-tab');
+    if (rosterContent) rosterContent.classList.remove('hidden');
+  }
+
   // ===== Screen Navigation =====
 
   function showScreen(screenName) {
@@ -451,7 +490,20 @@
 
     var sessionLoaded = await loadSession();
     if (sessionLoaded) {
-      showScreen('app');
+      // Admins/observers restore to admin panel
+      if (currentSession && (currentSession.role === 'admin' || currentSession.role === 'observer')) {
+        showScreen('admin');
+        if (window.ClockAdmin && typeof window.ClockAdmin.initAdmin === 'function') {
+          window.ClockAdmin.initAdmin();
+        }
+        // Both admin and observer: load roster tab by default
+        activateRosterTab();
+        if (window.ClockAdminRoster) {
+          window.ClockAdminRoster.load();
+        }
+      } else {
+        showScreen('app');
+      }
       window.dispatchEvent(new CustomEvent('session:restored', { detail: currentSession }));
     } else {
       showScreen('pin');
@@ -469,6 +521,8 @@
     loadSession: loadSession,
     getSession: getSession,
     isAdmin: isAdmin,
+    isObserver: isObserver,
+    isAdminOrObserver: isAdminOrObserver,
     logout: logout,
     showScreen: showScreen,
     loadStaffSelector: loadStaffSelector

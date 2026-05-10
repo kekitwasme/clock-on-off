@@ -819,7 +819,7 @@
     if (adminPanelBtn) {
       adminPanelBtn.addEventListener('click', function(e) {
         e.preventDefault();
-        if (window.ClockAuth.isAdmin()) {
+        if (window.ClockAuth.isAdminOrObserver()) {
           window.ClockAuth.showScreen('admin');
           // Initialize admin panel if available
           if (window.ClockAdmin && typeof window.ClockAdmin.initAdmin === 'function') {
