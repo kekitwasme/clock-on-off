@@ -89,7 +89,11 @@
 
       // Restore scroll position after re-rendering
       if (scrollParent) {
-        scrollParent.scrollTop = savedScrollTop;
+        // Use requestAnimationFrame to ensure layout is complete before restoring
+        var st = savedScrollTop;
+        requestAnimationFrame(function() {
+          scrollParent.scrollTop = st;
+        });
       }
 
       if (rosterEntries.length === 0 && empty) {
