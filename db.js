@@ -424,7 +424,7 @@
 
     var result = await client
       .from('shifts')
-      .select('id, staff_id, clock_in, clock_out, clock_in_adjusted, clock_out_adjusted, notes, created_at, breaks(id, break_start, break_end, created_at)')
+      .select('id, staff_id, clock_in, clock_out, clock_in_adjusted, clock_out_adjusted, notes, created_at')
       .eq('staff_id', staffId)
       .gte('clock_in', since.toISOString())
       .order('clock_in', { ascending: false })
@@ -468,7 +468,7 @@
     var client = getClient();
     var query = client
       .from('shifts')
-      .select('\n            id,\n            staff_id,\n            clock_in,\n            clock_out,\n            clock_in_adjusted,\n            clock_out_adjusted,\n            notes,\n            created_at,\n            staff:staff_id ( id, name, role ),\n            breaks(id, break_start, break_end, created_at)\n        ');
+      .select('\n            id,\n            staff_id,\n            clock_in,\n            clock_out,\n            clock_in_adjusted,\n            clock_out_adjusted,\n            notes,\n            created_at,\n            staff:staff_id ( id, name, role )\n        ');
 
     if (filters.staffId) {
       query = query.eq('staff_id', filters.staffId);
@@ -520,107 +520,6 @@
     }
 
     return result.data;
-  }
-
-  // ===== Break Functions =====
-
-  /**
-   * Start a break for the active shift.
-   * @param {string} shiftId
-   * @returns {Promise<object>}
-   */
-  async function startBreak(shiftId) {
-    var client = getClient();
-    var result = await client.rpc('start_break', {
-      p_shift_id: shiftId
-    });
-
-    if (result.error) {
-      var msg = result.error.message || 'Failed to start break.';
-      if (msg.indexOf('Already on break') !== -1) {
-        throw new Error('You are already on a break.');
-      }
-      throw new Error(msg);
-    }
-
-    return result.data;
-  }
-
-  /**
-   * End a break.
-   * @param {string} breakId
-   * @returns {Promise<object>}
-   */
-  async function endBreak(breakId) {
-    var client = getClient();
-    var result = await client.rpc('end_break', {
-      p_break_id: breakId
-    });
-
-    if (result.error) {
-      throw new Error(result.error.message || 'Failed to end break.');
-    }
-
-    return result.data;
-  }
-
-  /**
-   * Get the active (open) break for a shift.
-   * @param {string} shiftId
-   * @returns {Promise<object|null>}
-   */
-  async function getActiveBreak(shiftId) {
-    var client = getClient();
-    var result = await client
-      .from('breaks')
-      .select('id, shift_id, break_start, break_end, created_at')
-      .eq('shift_id', shiftId)
-      .is('break_end', null)
-      .maybeSingle();
-
-    if (result.error) {
-      throw new Error('Failed to get break status: ' + result.error.message);
-    }
-
-    return result.data;
-  }
-
-  // ===== Audit Log Functions =====
-
-  /**
-   * Get all breaks for a shift.
-   * @param {string} shiftId
-   * @returns {Promise<Array>}
-   */
-  async function getShiftBreaks(shiftId) {
-    var client = getClient();
-    var result = await client
-      .from('breaks')
-      .select('id, shift_id, break_start, break_end, created_at')
-      .eq('shift_id', shiftId)
-      .order('break_start', { ascending: true });
-
-    if (result.error) {
-      throw new Error('Failed to get breaks: ' + result.error.message);
-    }
-    return result.data || [];
-  }
-
-  /**
-   * Calculate total break duration for a shift in milliseconds.
-   * @param {string} shiftId
-   * @returns {Promise<number>}
-   */
-  async function getShiftBreakDuration(shiftId) {
-    var client = getClient();
-    var result = await client.rpc('get_shift_break_duration_minutes', {
-      p_shift_id: shiftId
-    });
-
-    if (result.error) {
-      throw new Error('Failed to get break duration: ' + result.error.message);
-    }
-    return (result.data || 0) * 60 * 1000;
   }
 
   // ===== Roster Functions =====
@@ -914,11 +813,6 @@
     getAllShifts: getAllShifts,
     updateShift: updateShift,
     getAuditLog: getAuditLog,
-    startBreak: startBreak,
-    endBreak: endBreak,
-    getActiveBreak: getActiveBreak,
-    getShiftBreaks: getShiftBreaks,
-    getShiftBreakDuration: getShiftBreakDuration,
     createRosterEntry: createRosterEntry,
     updateRosterEntry: updateRosterEntry,
     deleteRosterEntry: deleteRosterEntry,

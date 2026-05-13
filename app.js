@@ -18,10 +18,6 @@
   var serverTime = null;
   var durationTimer = null;
 
-  // ===== Break State =====
-  var currentBreak = null;
-  var breakTimerInterval = null;
-
   // ===== Roster State =====
   var upcomingRoster = null;
 
@@ -89,36 +85,6 @@
     return { message: message, severity: severity };
   }
 
-  // ===== Break Timer =====
-
-  function startBreakTimer() {
-    stopBreakTimer();
-    updateBreakTimerDisplay();
-    breakTimerInterval = setInterval(updateBreakTimerDisplay, 1000);
-  }
-
-  function stopBreakTimer() {
-    if (breakTimerInterval) {
-      clearInterval(breakTimerInterval);
-      breakTimerInterval = null;
-    }
-  }
-
-  function updateBreakTimerDisplay() {
-    var breakTimerEl = document.getElementById('break-timer-display');
-    if (!breakTimerEl || !currentBreak || !currentBreak.break_start) {
-      if (breakTimerEl) breakTimerEl.classList.add('hidden');
-      return;
-    }
-    var start = new Date(currentBreak.break_start);
-    var now = serverTime ? new Date(serverTime.getTime() + (Date.now() - serverTime.getTime())) : new Date();
-    var diff = now - start;
-    var mins = Math.floor(diff / 60000);
-    var secs = Math.floor((diff % 60000) / 1000);
-    breakTimerEl.textContent = 'Break: ' + String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
-    breakTimerEl.classList.remove('hidden');
-  }
-
   // ===== Toast System =====
 
   function showToast(message, type, duration) {
@@ -157,8 +123,6 @@
     var statusText = statusIndicator ? statusIndicator.querySelector('.status-text') : null;
     var shiftDuration = document.getElementById('shift-duration');
     var actionBtn = document.getElementById('clock-action-btn');
-    var breakBtn = document.getElementById('break-action-btn');
-    var breakTimerEl = document.getElementById('break-timer-display');
     var nextShiftCard = document.getElementById('next-shift-card');
     var nextShiftText = document.getElementById('next-shift-text');
 
@@ -178,35 +142,13 @@
     }
 
     if (currentShift) {
-      if (currentBreak) {
-        // On Break
-        statusIndicator.className = 'status-indicator mb-4 status-on-break';
-        statusText.textContent = 'On Break';
-        shiftDuration.classList.remove('hidden');
-        actionBtn.textContent = 'Clock Off';
-        actionBtn.className = 'w-full py-4 text-xl font-bold rounded-lg mb-4 transition-colors clocked-on';
-        if (breakBtn) {
-          breakBtn.textContent = 'End Break';
-          breakBtn.className = 'break-btn break-btn-active w-full mb-4';
-          breakBtn.classList.remove('hidden');
-        }
-        startBreakTimer();
-      } else {
-        // Clocked On, Not On Break
-        statusIndicator.className = 'status-indicator mb-4 clocked-on';
-        statusText.textContent = 'Clocked On';
-        shiftDuration.classList.remove('hidden');
-        actionBtn.textContent = 'Clock Off';
-        actionBtn.className = 'w-full py-4 text-xl font-bold rounded-lg mb-4 transition-colors clocked-on';
-        if (breakBtn) {
-          breakBtn.textContent = 'Start Break';
-          breakBtn.className = 'break-btn w-full mb-4';
-          breakBtn.classList.remove('hidden');
-        }
-        if (breakTimerEl) breakTimerEl.classList.add('hidden');
-        stopBreakTimer();
-        startDurationTimer();
-      }
+      // Clocked On
+      statusIndicator.className = 'status-indicator mb-4 clocked-on';
+      statusText.textContent = 'Clocked On';
+      shiftDuration.classList.remove('hidden');
+      actionBtn.textContent = 'Clock Off';
+      actionBtn.className = 'w-full py-4 text-xl font-bold rounded-lg mb-4 transition-colors clocked-on';
+      startDurationTimer();
     } else {
       // Clocked Off
       statusIndicator.className = 'status-indicator mb-4 clocked-off';
@@ -214,9 +156,6 @@
       shiftDuration.classList.add('hidden');
       actionBtn.textContent = 'Clock On';
       actionBtn.className = 'w-full py-4 text-xl font-bold rounded-lg mb-4 transition-colors clocked-off';
-      if (breakBtn) breakBtn.classList.add('hidden');
-      if (breakTimerEl) breakTimerEl.classList.add('hidden');
-      stopBreakTimer();
       stopDurationTimer();
     }
   }
@@ -296,7 +235,7 @@
 
         var timeStr = window.ClockDB.formatTime(isoTime);
         var adjStr = adjusted ? ' (adjusted)' : '';
-        showToast('Clocked on at ' + timeStr + adjStr, 'success');
+        showToast('✅ Clocked on at ' + timeStr + adjStr, 'success');
 
         // Late/early check
         try {
@@ -315,23 +254,17 @@
         if (!currentShift || !currentShift.id) {
           throw new Error('No active shift to clock off from.');
         }
-        if (currentBreak) {
-          showToast('End your break first before clocking off.', 'error');
-          if (actionBtn) actionBtn.disabled = false;
-          return;
-        }
         var updatedShift = await window.ClockDB.clockOff(currentShift.id, isoTime, adjusted);
         var durationMs = window.ClockDB.calculateDuration(currentShift.clock_in, isoTime);
         var durationStr = window.ClockDB.formatDuration(durationMs);
 
         currentShift = null;
-        currentBreak = null;
         stopDurationTimer();
         updateStatusDisplay();
 
         var timeStr2 = window.ClockDB.formatTime(isoTime);
         var adjStr2 = adjusted ? ' (adjusted)' : '';
-        showToast('Clocked off at ' + timeStr2 + adjStr2 + ' \u2022 Shift: ' + durationStr, 'success');
+        showToast('👋 Clocked off at ' + timeStr2 + adjStr2 + ' \u2022 Shift: ' + durationStr, 'success');
 
         // Late/early check
         try {
@@ -364,84 +297,6 @@
         e.preventDefault();
         doClockAction();
       });
-    }
-
-    var breakBtn = document.getElementById('break-action-btn');
-    if (breakBtn) {
-      breakBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-        if (currentBreak) {
-          endBreakAction();
-        } else {
-          startBreakAction();
-        }
-      });
-    }
-  }
-
-  async function startBreakAction() {
-    if (!currentShift || !currentShift.id) {
-      showToast('You must be clocked on to start a break.', 'error');
-      return;
-    }
-    if (currentBreak) {
-      showToast('You are already on a break.', 'error');
-      return;
-    }
-    var breakBtn = document.getElementById('break-action-btn');
-    try {
-      if (breakBtn) breakBtn.disabled = true;
-      var result = await window.ClockDB.startBreak(currentShift.id);
-      currentBreak = result;
-      updateStatusDisplay();
-      showToast('Break started', 'success');
-    } catch (error) {
-      console.error('Start break failed:', error);
-      showToast(error.message || 'Failed to start break. Please try again.', 'error');
-      // Refresh break state in case server thinks we're already on break
-      try {
-        var refreshedBreak = await window.ClockDB.getActiveBreak(currentShift.id);
-        if (refreshedBreak) {
-          currentBreak = refreshedBreak;
-          updateStatusDisplay();
-        }
-      } catch (refreshErr) {
-        console.error('Failed to refresh break state:', refreshErr);
-      }
-    } finally {
-      if (breakBtn) breakBtn.disabled = false;
-    }
-  }
-
-  async function endBreakAction() {
-    if (!currentBreak || !currentBreak.id) {
-      showToast('You are not currently on a break.', 'error');
-      return;
-    }
-    var breakBtn = document.getElementById('break-action-btn');
-    try {
-      if (breakBtn) breakBtn.disabled = true;
-      var result = await window.ClockDB.endBreak(currentBreak.id);
-      currentBreak = null;
-      updateStatusDisplay();
-      showToast('Break ended', 'success');
-    } catch (error) {
-      console.error('End break failed:', error);
-      showToast(error.message || 'Failed to end break. Please try again.', 'error');
-      // Refresh break state in case break was already ended server-side
-      if (currentShift && currentShift.id) {
-        try {
-          var refreshedBreak = await window.ClockDB.getActiveBreak(currentShift.id);
-          if (!refreshedBreak) {
-            currentBreak = null;
-            updateStatusDisplay();
-          }
-        } catch (refreshErr) {
-          console.error('Failed to refresh break state:', refreshErr);
-        }
-      }
-    } finally {
-      if (breakBtn) breakBtn.disabled = false;
     }
   }
 
@@ -749,21 +604,7 @@
 
     // Break info
     var breakInfo = '';
-    if (shift.breaks && shift.breaks.length > 0) {
-      var breakCount = shift.breaks.length;
-      var totalBreakMs = 0;
-      shift.breaks.forEach(function(b) {
-        if (b.break_end) {
-          totalBreakMs += new Date(b.break_end) - new Date(b.break_start);
-        }
-      });
-      var totalBreakMin = Math.round(totalBreakMs / 60000);
-      var breakLabel = breakCount === 1 ? '1 break' : breakCount + ' breaks';
-      breakInfo = '<div class="text-xs text-amber-600 font-medium mt-1 flex items-center gap-1">' +
-        '<span>\u2615</span>' +
-        '<span>' + breakLabel + ' \u2022 ' + totalBreakMin + ' min total</span>' +
-      '</div>';
-    }
+    // NOTE: Break feature removed — breakInfo stays empty
 
     card.className = 'shift-card ' + (isActive ? 'active' : 'completed');
     card.innerHTML =
@@ -860,11 +701,6 @@
       if (!session) return;
 
       currentShift = await window.ClockDB.getActiveShift(session.id);
-      if (currentShift && currentShift.id) {
-        currentBreak = await window.ClockDB.getActiveBreak(currentShift.id);
-      } else {
-        currentBreak = null;
-      }
 
       // Load upcoming roster
       try {
@@ -890,10 +726,8 @@
 
   function handleLogout() {
     currentShift = null;
-    currentBreak = null;
     upcomingRoster = null;
     stopDurationTimer();
-    stopBreakTimer();
   }
 
   // ===== Roster info alongside clock status =====

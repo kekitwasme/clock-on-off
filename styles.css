@@ -742,47 +742,6 @@ textarea:disabled {
         background: white;
     }
 }
-
-/* ===== Feature Update: Break Tracking ===== */
-
-.break-btn {
-    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-    color: white;
-    font-weight: 600;
-    padding: 0.875rem 1.5rem;
-    border-radius: 0.75rem;
-    font-size: 1rem;
-    transition: all 0.15s ease;
-    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
-    min-height: 48px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-}
-
-.break-btn:active {
-    transform: scale(0.97);
-}
-
-.break-btn-active {
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
-}
-
-.break-timer {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: #059669;
-    font-variant-numeric: tabular-nums;
-}
-
-.status-on-break {
-    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%) !important;
-    border-color: #10b981 !important;
-    color: #047857 !important;
-}
-
 /* ===== Feature Update: Toast Notifications ===== */
 
 #toast-container {
