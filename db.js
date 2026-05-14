@@ -83,6 +83,34 @@
     return currentSessionToken;
   }
 
+  // ===== Auth Error Detection =====
+
+  var AUTH_ERROR_MESSAGES = [
+    'No valid session',
+    'invalid token',
+    'jwt expired',
+    'JWT expired',
+    'auth',
+    'unauthorized',
+    'not authenticated'
+  ];
+
+  function isAuthError(error) {
+    if (!error || !error.message) return false;
+    var msg = String(error.message).toLowerCase();
+    return AUTH_ERROR_MESSAGES.some(function(keyword) {
+      return msg.indexOf(keyword.toLowerCase()) !== -1;
+    });
+  }
+
+  function dispatchSessionExpired() {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('session:expired', {
+        detail: { reason: 'Session expired or invalid' }
+      }));
+    }
+  }
+
   // ===== Server Time =====
 
   /**
@@ -180,7 +208,8 @@
     var error = result.error;
 
     if (error) {
-      if (error.message && error.message.indexOf('No valid session') !== -1) {
+      if (isAuthError(error)) {
+        dispatchSessionExpired();
         return null;
       }
       throw new Error('Failed to resolve session: ' + error.message);

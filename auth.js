@@ -394,6 +394,24 @@
     return !!(currentSession && (currentSession.role === 'admin' || currentSession.role === 'observer'));
   }
 
+  async function validateSession() {
+    if (!currentSession || !currentSession.token) return false;
+    if (!window.ClockDB) return false;
+    try {
+      window.ClockDB.init(currentSession.token);
+      var staff = await window.ClockDB.getCurrentStaff();
+      if (!staff || !staff.active) {
+        await logout();
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.warn('Session validation failed:', err.message);
+      await logout();
+      return false;
+    }
+  }
+
   async function logout() {
     // Destroy server-side session
     if (window.ClockDB) {
@@ -482,11 +500,31 @@
     });
   }
 
+  // ===== Visibility / Heartbeat =====
+
+  function initSessionHeartbeat() {
+    // Listen for auth errors from db.js
+    window.addEventListener('session:expired', async function() {
+      if (currentSession) {
+        console.warn('Session expired event received — logging out');
+        await logout();
+      }
+    });
+
+    // Validate session when tab regains visibility
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'visible' && currentSession) {
+        validateSession();
+      }
+    });
+  }
+
   // ===== Main Initialization =====
 
   async function init() {
     initPinScreen();
     initLogout();
+    initSessionHeartbeat();
 
     var sessionLoaded = await loadSession();
     if (sessionLoaded) {
@@ -519,6 +557,7 @@
     initLogout: initLogout,
     createSession: createSession,
     loadSession: loadSession,
+    validateSession: validateSession,
     getSession: getSession,
     isAdmin: isAdmin,
     isObserver: isObserver,

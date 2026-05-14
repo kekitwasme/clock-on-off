@@ -760,11 +760,19 @@
     window.addEventListener('session:login', handleLogin);
     window.addEventListener('session:restored', handleLogin);
     window.addEventListener('session:logout', handleLogout);
+    window.addEventListener('session:expired', handleSessionExpired);
 
     // If session already exists, load shift status
     if (window.ClockAuth && window.ClockAuth.getSession()) {
       await handleLogin();
     }
+  }
+
+  function handleSessionExpired() {
+    currentShift = null;
+    upcomingRoster = null;
+    stopDurationTimer();
+    showToast('Your session has expired. Please log in again.', 'error', 5000);
   }
 
   // ===== Expose globally =====
