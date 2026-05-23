@@ -29,6 +29,8 @@
     initStaffFilter();
     initViewToggles();
     initExportButton();
+    initAddEntryButton();
+    initAddEntryModal();
   }
 
   /**
@@ -180,7 +182,7 @@
     var clockOutStr = isActive ? 'Active' : window.ClockDB.formatTime(shift.clock_out);
     var duration = isActive
       ? 'In progress'
-      : window.ClockDB.formatDuration(window.ClockDB.calculateDuration(shift.clock_in, shift.clock_out));
+      : formatDecimalHours(window.ClockDB.calculateDuration(shift.clock_in, shift.clock_out));
 
     var adjustedHtml = buildAdjustedBadges(shift);
     var lateEarlyHtml = buildLateEarlyBadges(shift, card);
@@ -323,7 +325,7 @@
     var clockOutStr = shift.clock_out ? window.ClockDB.formatTime(shift.clock_out) : '--';
     var duration = isActive
       ? 'Active'
-      : window.ClockDB.formatDuration(window.ClockDB.calculateDuration(shift.clock_in, shift.clock_out));
+      : formatDecimalHours(window.ClockDB.calculateDuration(shift.clock_in, shift.clock_out));
     var status = buildShiftStatus(shift);
 
     var tr = document.createElement('tr');
@@ -479,11 +481,21 @@
         end.setDate(end.getDate() + sundayOffset);
         end.setHours(23, 59, 59, 999);
         break;
-      case 'last7':
-        start.setDate(start.getDate() - 6);
+      case 'lastweek':
+        var dayOfWeek = start.getDay();
+        var daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        start.setDate(start.getDate() - daysSinceMonday - 7);
+        start.setHours(0, 0, 0, 0);
+        end.setDate(end.getDate() - daysSinceMonday - 1);
+        end.setHours(23, 59, 59, 999);
         break;
-      case 'last30':
-        start.setDate(start.getDate() - 29);
+      case 'last2weeks':
+        var dayOfWeek2 = start.getDay();
+        var daysSinceMonday2 = dayOfWeek2 === 0 ? 6 : dayOfWeek2 - 1;
+        start.setDate(start.getDate() - daysSinceMonday2 - 14);
+        start.setHours(0, 0, 0, 0);
+        end.setDate(end.getDate() - daysSinceMonday2 - 1);
+        end.setHours(23, 59, 59, 999);
         break;
       case 'custom':
         if (customStartDate) {
@@ -530,8 +542,8 @@
       { key: 'today', label: 'Today' },
       { key: 'yesterday', label: 'Yesterday' },
       { key: 'thisweek', label: 'This Week' },
-      { key: 'last7', label: 'Last 7 days' },
-      { key: 'last30', label: 'Last 30 days' },
+      { key: 'lastweek', label: 'Last Week' },
+      { key: 'last2weeks', label: 'Last 2 Weeks' },
       { key: 'custom', label: 'Custom' }
     ];
 
@@ -790,6 +802,88 @@
     btn.classList.toggle('text-gray-800', !active);
   }
 
+  function initAddEntryButton() {
+    var btn = document.getElementById('add-entry-btn');
+    if (btn) {
+      btn.addEventListener('click', openAddEntryModal);
+    }
+  }
+
+  function initAddEntryModal() {
+    var cancelBtn = document.getElementById('add-entry-cancel');
+    var form = document.getElementById('add-entry-form');
+    var overlay = document.querySelector('#add-entry-modal .modal-overlay');
+
+    if (cancelBtn) cancelBtn.addEventListener('click', hideAddEntryModal);
+    if (overlay) overlay.addEventListener('click', hideAddEntryModal);
+    if (form) {
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        submitAddEntry();
+      });
+    }
+  }
+
+  async function openAddEntryModal() {
+    var modal = document.getElementById('add-entry-modal');
+    if (!modal) return;
+
+    var staffSelect = document.getElementById('add-entry-staff');
+    if (staffSelect) {
+      staffSelect.innerHTML = '<option value="" disabled selected>Select staff...</option>';
+      try {
+        var staff = await window.ClockDB.getAllStaff();
+        staff.forEach(function(s) {
+          var opt = document.createElement('option');
+          opt.value = s.id;
+          opt.textContent = s.name;
+          staffSelect.appendChild(opt);
+        });
+      } catch (err) {
+        console.error('Failed to load staff for add entry:', err);
+      }
+    }
+
+    document.getElementById('add-entry-clock-in').value = '';
+    document.getElementById('add-entry-clock-out').value = '';
+    document.getElementById('add-entry-notes').value = '';
+
+    modal.classList.remove('hidden');
+  }
+
+  function hideAddEntryModal() {
+    var modal = document.getElementById('add-entry-modal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  async function submitAddEntry() {
+    var staffId = document.getElementById('add-entry-staff').value;
+    var clockInVal = document.getElementById('add-entry-clock-in').value;
+    var clockOutVal = document.getElementById('add-entry-clock-out').value;
+    var notes = document.getElementById('add-entry-notes').value.trim();
+
+    if (!staffId) { showToast('Please select a staff member.', 'error'); return; }
+    if (!clockInVal) { showToast('Clock-in time is required.', 'error'); return; }
+    if (clockOutVal && new Date(clockOutVal) <= new Date(clockInVal)) {
+      showToast('Clock-out must be after clock-in.', 'error'); return;
+    }
+
+    try {
+      await window.ClockDB.adminCreateShift(
+        staffId,
+        new Date(clockInVal).toISOString(),
+        clockOutVal ? new Date(clockOutVal).toISOString() : null,
+        notes || null
+      );
+      showToast('Timesheet entry created.', 'success');
+      hideAddEntryModal();
+      load();
+    } catch (err) {
+      console.error('Failed to create shift:', err);
+      showToast(err.message || 'Failed to create timesheet entry.', 'error');
+    }
+  }
+
   function initExportButton() {
     var exportBtn = document.getElementById('export-csv-btn');
     if (exportBtn) {
@@ -828,6 +922,11 @@
     if (window.ClockApp && window.ClockApp.showToast) {
       window.ClockApp.showToast(message, type);
     }
+  }
+
+  function formatDecimalHours(ms) {
+    var hours = ms / (1000 * 60 * 60);
+    return hours.toFixed(1) + ' h';
   }
 
   function escapeHtml(text) {

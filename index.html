@@ -13,7 +13,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="MK ClockOn">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="styles.css?v=42">
+    <link rel="stylesheet" href="styles.css?v=43">
 </head>
 <body class="bg-gray-100 min-h-screen">
     <!-- Loading State -->
@@ -197,6 +197,9 @@
                     <select id="timesheet-staff-filter" class="flex-1 p-2 border border-gray-300 rounded">
                         <option value="">All Staff</option>
                     </select>
+                    <button id="add-entry-btn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 whitespace-nowrap">
+                        ➕ Add Entry
+                    </button>
                     <button id="export-csv-btn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 whitespace-nowrap">
                         📥 Export CSV
                     </button>
@@ -219,7 +222,6 @@
                     <button id="roster-next-week" class="bg-gray-200 text-gray-800 px-3 py-2 rounded text-sm font-semibold hover:bg-gray-300">Next →</button>
                 </div>
                 <button id="roster-current-week" class="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold mb-2 hover:bg-blue-700 text-sm">Current Week</button>
-                <button id="roster-import-btn" class="w-full bg-green-600 text-white py-2 rounded-lg font-semibold mb-2 hover:bg-green-700 text-sm">📥 Import from CSV / Google Sheets</button>
                 <button id="roster-copy-week-btn" class="w-full bg-indigo-600 text-white py-2 rounded-lg font-semibold mb-4 hover:bg-indigo-700 text-sm">📋 Copy Last Week's Roster</button>
                 <div id="roster-grid-container">
                     <!-- Roster grid rendered here -->
@@ -370,35 +372,37 @@
         </div>
     </div>
 
-    <!-- Roster Import Modal -->
-    <div id="roster-import-modal" class="modal hidden">
+    <!-- Add Timesheet Entry Modal -->
+    <div id="add-entry-modal" class="modal hidden">
         <div class="modal-overlay"></div>
-        <div class="modal-content max-w-lg">
-            <h2 class="text-xl font-bold mb-4">Import Roster from CSV</h2>
-            <p class="text-sm text-gray-600 mb-3">
-                Export your Google Sheet as CSV and upload it here.
-                <a href="https://docs.google.com/spreadsheets/d/1roster-template-example/create?usp=sharing" target="_blank" class="text-blue-600 underline">Get template</a>
-            </p>
-            <div class="mb-4">
-                <label class="block text-sm text-gray-600 mb-1">CSV File</label>
-                <input type="file" id="roster-import-file" accept=".csv" class="w-full p-3 border border-gray-300 rounded-lg">
-            </div>
-            <div class="mb-4">
-                <label class="block text-sm text-gray-600 mb-1">Or paste CSV data here</label>
-                <textarea id="roster-import-text" class="w-full p-3 border border-gray-300 rounded-lg font-mono text-xs" rows="6" placeholder="Name,Date,Start,End,Notes
-Admin,2026-05-07,09:00,17:00,Opening
-Pem,2026-05-07,17:00,22:00,Closing"></textarea>
-            </div>
-            <div id="roster-import-preview" class="hidden mb-4">
-                <p class="text-sm font-semibold mb-2">Preview:</p>
-                <div id="roster-import-preview-content" class="max-h-40 overflow-y-auto border border-gray-200 rounded-lg"></div>
-            </div>
-            <div id="roster-import-summary" class="hidden mb-4 p-3 rounded-lg"></div>
-            <div class="flex gap-3">
-                <button type="button" id="roster-import-cancel" class="flex-1 py-3 bg-gray-200 text-gray-800 rounded-lg font-semibold">Cancel</button>
-                <button type="button" id="roster-import-preview-btn" class="flex-1 py-3 bg-blue-600 text-white rounded-lg font-semibold">Preview</button>
-                <button type="button" id="roster-import-submit" class="flex-1 py-3 bg-green-600 text-white rounded-lg font-semibold hidden">Import</button>
-            </div>
+        <div class="modal-content">
+            <h2 class="text-xl font-bold mb-4">Add Timesheet Entry</h2>
+            <form id="add-entry-form">
+                <div class="mb-4">
+                    <label class="block text-sm text-gray-600 mb-1">Staff</label>
+                    <select id="add-entry-staff" class="w-full p-3 border border-gray-300 rounded-lg" required>
+                        <option value="" disabled selected>Select staff...</option>
+                    </select>
+                </div>
+                <div class="mb-4 flex gap-3">
+                    <div class="flex-1">
+                        <label class="block text-sm text-gray-600 mb-1">Clock In</label>
+                        <input type="datetime-local" id="add-entry-clock-in" class="w-full p-3 border border-gray-300 rounded-lg" required>
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-sm text-gray-600 mb-1">Clock Out</label>
+                        <input type="datetime-local" id="add-entry-clock-out" class="w-full p-3 border border-gray-300 rounded-lg">
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm text-gray-600 mb-1">Notes</label>
+                    <textarea id="add-entry-notes" class="w-full p-3 border border-gray-300 rounded-lg" rows="2"></textarea>
+                </div>
+                <div class="flex gap-3">
+                    <button type="button" id="add-entry-cancel" class="flex-1 py-3 bg-gray-200 text-gray-800 rounded-lg font-semibold">Cancel</button>
+                    <button type="submit" class="flex-1 py-3 bg-blue-600 text-white rounded-lg font-semibold">Save</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -408,12 +412,12 @@ Pem,2026-05-07,17:00,22:00,Closing"></textarea>
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
-    <script src="db.js?v=42"></script>
-    <script src="auth.js?v=42"></script>
-    <script src="app.js?v=42"></script>
-    <script src="admin-timesheet.js?v=42"></script>
-    <script src="admin-roster.js?v=42"></script>
-    <script src="admin.js?v=42"></script>
+    <script src="db.js?v=43"></script>
+    <script src="auth.js?v=43"></script>
+    <script src="app.js?v=43"></script>
+    <script src="admin-timesheet.js?v=43"></script>
+    <script src="admin-roster.js?v=43"></script>
+    <script src="admin.js?v=43"></script>
     <script>
     (function() {
       'use strict';

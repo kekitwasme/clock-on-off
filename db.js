@@ -817,7 +817,19 @@
     return result.data || [];
   }
 
-  // ===== Expose globally =====
+  async function adminCreateShift(staffId, clockIn, clockOut, notes) {
+    var client = getClient();
+    var result = await client.rpc('admin_create_shift', {
+      p_staff_id: staffId,
+      p_clock_in: clockIn,
+      p_clock_out: clockOut,
+      p_notes: notes || null
+    });
+    if (result.error) {
+      throw new Error('Failed to create shift: ' + result.error.message);
+    }
+    return result.data;
+  }
   window.ClockDB = {
     init: init,
     getClient: getClient,
@@ -853,6 +865,7 @@
     formatTime: formatTime,
     formatDate: formatDate,
     csvEscape: csvEscape,
-    getRosterStaff: getRosterStaff
+    getRosterStaff: getRosterStaff,
+    adminCreateShift: adminCreateShift
   };
 })();

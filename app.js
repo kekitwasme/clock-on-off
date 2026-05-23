@@ -235,7 +235,17 @@
 
         var timeStr = window.ClockDB.formatTime(isoTime);
         var adjStr = adjusted ? ' (adjusted)' : '';
-        showToast('✅ Clocked on at ' + timeStr + adjStr, 'success');
+        var clockOnMessages = [
+          "Let's make today amazing! 🌟",
+          "Crush it today! 💪",
+          "You've got this! 🚀",
+          "Time to shine! ✨",
+          "Make it a great one! 🎯",
+          "Let's go! 🔥",
+          "Another day, another chance to do great work! 🌅"
+        ];
+        var msg = clockOnMessages[Math.floor(Math.random() * clockOnMessages.length)];
+        showToast('✅ Clocked on at ' + timeStr + adjStr + ' \u2022 ' + msg, 'success', 5000);
 
         // Late/early check
         try {
@@ -264,7 +274,17 @@
 
         var timeStr2 = window.ClockDB.formatTime(isoTime);
         var adjStr2 = adjusted ? ' (adjusted)' : '';
-        showToast('👋 Clocked off at ' + timeStr2 + adjStr2 + ' \u2022 Shift: ' + durationStr, 'success');
+        var clockOffMessages = [
+          "Thanks for your hard work today! 🙏",
+          "Great job today! Enjoy your break! ☕",
+          "You crushed it! See you next time! 👏",
+          "Well done! Time to relax! 🌴",
+          "Thanks for giving it your all today! 💯",
+          "Another solid shift in the books! 📚",
+          "Appreciate your dedication! 🎉"
+        ];
+        var offMsg = clockOffMessages[Math.floor(Math.random() * clockOffMessages.length)];
+        showToast('👋 Clocked off at ' + timeStr2 + adjStr2 + ' \u2022 Shift: ' + durationStr + ' \u2022 ' + offMsg, 'success', 6000);
 
         // Late/early check
         try {
