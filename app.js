@@ -93,9 +93,18 @@
     var container = document.getElementById('toast-container');
     if (!container) return;
 
+    var iconMap = {
+      success: '🎉',
+      error: '⚠️',
+      info: '💡',
+      warning: '📢',
+      alert: '🚨'
+    };
+    var icon = iconMap[type] || iconMap.info;
+
     var toast = document.createElement('div');
-    toast.className = 'toast ' + type;
-    toast.textContent = message;
+    toast.className = 'toast toast-' + type;
+    toast.innerHTML = '<span class="toast-icon">' + icon + '</span><span class="toast-body">' + message + '</span>';
 
     // Click to dismiss
     toast.addEventListener('click', function() {
@@ -242,10 +251,15 @@
           "Time to shine! ✨",
           "Make it a great one! 🎯",
           "Let's go! 🔥",
-          "Another day, another chance to do great work! 🌅"
+          "Another day, another chance to do great work! 🌅",
+          "Ready to rock? 🎸",
+          "On your marks, get set… go! 🏁",
+          "The kitchen awaits! 👨‍🍳",
+          "Let's create something delicious! 🍜",
+          "Team Mucha — let's do this! 🙌"
         ];
         var msg = clockOnMessages[Math.floor(Math.random() * clockOnMessages.length)];
-        showToast('✅ Clocked on at ' + timeStr + adjStr + ' \u2022 ' + msg, 'success', 5000);
+        showToast('🟢 Clocked on at ' + timeStr + adjStr + ' \u2022 ' + msg, 'success', 5000);
 
         // Late/early check
         try {
@@ -281,10 +295,15 @@
           "Well done! Time to relax! 🌴",
           "Thanks for giving it your all today! 💯",
           "Another solid shift in the books! 📚",
-          "Appreciate your dedication! 🎉"
+          "Appreciate your dedication! 🎉",
+          "Go enjoy the rest of your day! 🌇",
+          "You were on fire today! 🔥",
+          "Rest up, you've earned it! 🛋️",
+          "Fantastic effort — see you next shift! 👋",
+          "Mucha Kitchen thanks you! 🍱"
         ];
         var offMsg = clockOffMessages[Math.floor(Math.random() * clockOffMessages.length)];
-        showToast('👋 Clocked off at ' + timeStr2 + adjStr2 + ' \u2022 Shift: ' + durationStr + ' \u2022 ' + offMsg, 'success', 6000);
+        showToast('🏁 Clocked off at ' + timeStr2 + adjStr2 + ' \u2022 Shift: ' + durationStr + ' \u2022 ' + offMsg, 'success', 6000);
 
         // Late/early check
         try {
