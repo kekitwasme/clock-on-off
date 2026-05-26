@@ -351,72 +351,128 @@
   }
 
   function buildStaffShiftTable(shifts) {
-    var table = document.createElement('table');
-    table.className = 'staff-timesheet-table';
-    table.innerHTML =
-      '<thead><tr>' +
-        '<th>Date</th><th>In</th><th>Out</th><th>Dur</th><th>Status</th><th></th>' +
-      '</tr></thead>';
+    var wrapper = document.createElement('div');
+    wrapper.className = 'staff-date-list';
+    wrapper.style.display = 'flex';
+    wrapper.style.flexDirection = 'column';
+    wrapper.style.gap = '8px';
+    wrapper.style.marginTop = '12px';
 
-    var tbody = document.createElement('tbody');
     var sorted = shifts.slice().sort(function(a, b) {
       return new Date(a.clock_in) - new Date(b.clock_in);
     });
 
+    // Group by date
+    var byDate = {};
     sorted.forEach(function(shift) {
-      tbody.appendChild(buildStaffShiftRow(shift));
+      var dateKey = shift.clock_in ? shift.clock_in.slice(0, 10) : 'Unknown';
+      if (!byDate[dateKey]) {
+        byDate[dateKey] = { dateKey: dateKey, shifts: [] };
+      }
+      byDate[dateKey].shifts.push(shift);
     });
 
-    table.appendChild(tbody);
+    var dateGroups = Object.values(byDate).sort(function(a, b) {
+      if (a.dateKey === 'Unknown') return 1;
+      if (b.dateKey === 'Unknown') return -1;
+      return b.dateKey.localeCompare(a.dateKey); // newest first
+    });
 
-    var wrapper = document.createElement('div');
-    wrapper.className = 'staff-timesheet-table-scroll';
-    wrapper.appendChild(table);
+    dateGroups.forEach(function(day) {
+      wrapper.appendChild(buildStaffDateRow(day));
+    });
+
     return wrapper;
   }
 
-  function buildStaffShiftRow(shift) {
-    var isActive = !shift.clock_out;
-    var dateStr = window.ClockDB.formatDate(shift.clock_in);
-    var clockInStr = window.ClockDB.formatTime(shift.clock_in);
-    var clockOutStr = shift.clock_out ? window.ClockDB.formatTime(shift.clock_out) : '--';
-    var duration = isActive
-      ? 'Active'
-      : formatDecimalHours(window.ClockDB.calculateDuration(shift.clock_in, shift.clock_out));
-    var status = buildShiftStatus(shift);
+  function buildStaffDateRow(day) {
+    var row = document.createElement('div');
+    row.className = 'timesheet-row';
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    row.style.gap = '12px';
 
-    var tr = document.createElement('tr');
-    tr.innerHTML =
-      '<td>' + dateStr + '</td>' +
-      '<td>' + clockInStr + '</td>' +
-      '<td>' + clockOutStr + '</td>' +
-      '<td>' + duration + '</td>' +
-      '<td>' + status + '</td>' +
-      '<td><button class="btn-edit-sm" data-shift-id="' + shift.id + '">&#9999;&#65039;</button></td>';
+    var dateLabel = formatDateLabel(day.dateKey);
 
-    var editBtn = tr.querySelector('.btn-edit-sm');
+    // Build comma-separated shifts and compute total hours
+    var shiftParts = [];
+    var totalMs = 0;
+    var hasActive = false;
+    var hasAdjusted = false;
+    var anyAlerts = [];
+
+    day.shifts.forEach(function(shift) {
+      var isActive = !shift.clock_out;
+      var clockInStr = window.ClockDB.formatTime(shift.clock_in);
+      var clockOutStr = isActive ? 'Active' : window.ClockDB.formatTime(shift.clock_out);
+      shiftParts.push(
+        '<span class="text-green-600">' + clockInStr + '</span> &rarr; <span class="' + (isActive ? 'text-orange-600' : 'text-red-600') + '">' + clockOutStr + '</span>'
+      );
+      if (isActive) {
+        hasActive = true;
+      } else {
+        totalMs += window.ClockDB.calculateDuration(shift.clock_in, shift.clock_out);
+      }
+      if (shift.clock_in_adjusted || shift.clock_out_adjusted) {
+        hasAdjusted = true;
+      }
+      if (shift.staff) {
+        if (shift.staff.expected_start_time) {
+          var a = checkLateEarly(shift.clock_in, shift.staff.expected_start_time);
+          if (a) anyAlerts.push(a);
+        }
+        if (shift.clock_out && shift.staff.expected_end_time) {
+          var b = checkLateEarly(shift.clock_out, shift.staff.expected_end_time);
+          if (b) anyAlerts.push(b);
+        }
+      }
+    });
+
+    var totalHours = totalMs / (1000 * 60 * 60);
+    var totalStr = hasActive ? totalHours.toFixed(2) + ' + active' : totalHours.toFixed(2);
+
+    var adjustedHtml = '';
+    if (hasAdjusted) {
+      adjustedHtml = '<span class="shift-adjusted-badge">adjusted</span>';
+    }
+
+    var badgeHtml = '';
+    if (anyAlerts.length > 0) {
+      var critical = anyAlerts.some(function(a) { return a.critical; });
+      row.classList.add(critical ? 'border-orange-400' : 'border-yellow-400');
+      row.classList.add('border-2');
+      badgeHtml = '<div class="flex flex-wrap gap-1 mt-1">' +
+        anyAlerts.map(function(a) {
+          var cls = a.critical ? 'late-badge-critical' : 'late-badge';
+          return '<span class="' + cls + '">' + escapeHtml(a.message) + '</span>';
+        }).join('') +
+        '</div>';
+    }
+
+    var primaryShift = day.shifts[0];
+
+    row.innerHTML =
+      '<div style="flex:1; min-width:0;">' +
+        '<div class="font-semibold text-gray-800">' + escapeHtml(dateLabel) + '</div>' +
+        '<div class="text-sm text-gray-600" style="margin-top:2px;">' + shiftParts.join(', ') + '</div>' +
+        adjustedHtml +
+        badgeHtml +
+      '</div>' +
+      '<div style="text-align:right; white-space:nowrap;">' +
+        '<div class="shift-duration">' + totalStr + '</div>' +
+        '<button class="btn-edit text-sm px-3 py-2" data-action="edit-shift" data-shift-id="' + primaryShift.id + '" style="margin-top:4px;">&#9999;&#65039; Edit</button>' +
+      '</div>';
+
+    var editBtn = row.querySelector('[data-action="edit-shift"]');
     if (editBtn) {
-      editBtn.addEventListener('click', function() {
-        openShiftEdit(shift);
+      editBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        openShiftEdit(primaryShift);
       });
     }
 
-    return tr;
+    return row;
   }
-
-  function buildShiftStatus(shift) {
-    if (!shift.clock_out) return '<span class="status-active">&#128994; Active</span>';
-    if (shift.clock_in_adjusted || shift.clock_out_adjusted) return '<span class="status-adjusted">&#9999;&#65039; Adj</span>';
-
-    var startAlert = checkLateEarly(shift.clock_in, shift.staff && shift.staff.expected_start_time);
-    if (startAlert && startAlert.critical) return '<span class="status-late">&#9888;&#65039; Late</span>';
-
-    var endAlert = shift.clock_out ? checkLateEarly(shift.clock_out, shift.staff && shift.staff.expected_end_time) : null;
-    if (endAlert && endAlert.critical) return '<span class="status-early">&#128682; Early</span>';
-
-    return '<span class="status-ok">&#9989;</span>';
-  }
-
 
 
   // ===== Data Grouping =====
