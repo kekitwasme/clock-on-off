@@ -375,7 +375,7 @@
     var dateGroups = Object.values(byDate).sort(function(a, b) {
       if (a.dateKey === 'Unknown') return 1;
       if (b.dateKey === 'Unknown') return -1;
-      return b.dateKey.localeCompare(a.dateKey); // newest first
+      return a.dateKey.localeCompare(b.dateKey); // oldest first
     });
 
     dateGroups.forEach(function(day) {
