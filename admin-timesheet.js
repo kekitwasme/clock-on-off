@@ -139,91 +139,34 @@
   // ===== Date Group Building =====
 
   function buildDateGroup(group) {
-    var card = document.createElement('div');
-    card.className = 'timesheet-row';
+    var wrapper = document.createElement('div');
+    wrapper.className = 'date-group';
 
-    // Build inline shift strings and total hours
-    var shiftParts = [];
-    var totalMs = 0;
-    var hasActive = false;
-    var hasAdjusted = false;
-    var anyAlerts = [];
-
-    group.shifts.forEach(function(shift) {
-      var staffName = escapeHtml(getStaffName(shift));
-      var isActive = !shift.clock_out;
-      var clockInStr = window.ClockDB.formatTime(shift.clock_in);
-      var clockOutStr = isActive ? 'Active' : window.ClockDB.formatTime(shift.clock_out);
-      shiftParts.push(
-        '<span class="font-semibold text-gray-800">' + staffName + '</span> ' +
-        '<span class="text-green-600">' + clockInStr + '</span> &rarr; <span class="' + (isActive ? 'text-orange-600' : 'text-red-600') + '">' + clockOutStr + '</span>'
-      );
-      if (isActive) {
-        hasActive = true;
-      } else {
-        totalMs += window.ClockDB.calculateDuration(shift.clock_in, shift.clock_out);
-      }
-      if (shift.clock_in_adjusted || shift.clock_out_adjusted) {
-        hasAdjusted = true;
-      }
-      if (shift.staff) {
-        if (shift.staff.expected_start_time) {
-          var a = checkLateEarly(shift.clock_in, shift.staff.expected_start_time);
-          if (a) anyAlerts.push(a);
-        }
-        if (shift.clock_out && shift.staff.expected_end_time) {
-          var b = checkLateEarly(shift.clock_out, shift.staff.expected_end_time);
-          if (b) anyAlerts.push(b);
-        }
-      }
+    var header = document.createElement('div');
+    header.className = 'date-group-header';
+    header.innerHTML = buildDateHeaderHtml(group);
+    header.addEventListener('click', function() {
+      wrapper.classList.toggle('date-group-collapsed');
     });
 
-    var totalHours = totalMs / (1000 * 60 * 60);
-    var totalStr = hasActive ? totalHours.toFixed(2) + ' + active' : totalHours.toFixed(2);
+    var content = document.createElement('div');
+    content.className = 'date-group-content';
+    group.shifts.forEach(function(shift) {
+      content.appendChild(buildShiftCard(shift));
+    });
 
-    var adjustedHtml = '';
-    if (hasAdjusted) {
-      adjustedHtml = '<span class="shift-adjusted-badge">adjusted</span>';
-    }
+    wrapper.appendChild(header);
+    wrapper.appendChild(content);
+    return wrapper;
+  }
 
-    var badgeHtml = '';
-    if (anyAlerts.length > 0) {
-      var critical = anyAlerts.some(function(a) { return a.critical; });
-      card.classList.add(critical ? 'border-orange-400' : 'border-yellow-400');
-      card.classList.add('border-2');
-      badgeHtml = '<div class="flex flex-wrap gap-1 mt-1">' +
-        anyAlerts.map(function(a) {
-          var cls = a.critical ? 'late-badge-critical' : 'late-badge';
-          return '<span class="' + cls + '">' + escapeHtml(a.message) + '</span>';
-        }).join('') +
-        '</div>';
-    }
-
-    // Use first shift for the edit action
-    var primaryShift = group.shifts[0];
-
-    card.innerHTML =
-      '<div class="timesheet-row-header" style="margin-bottom:4px;">' +
-        '<span class="font-semibold text-gray-800">' + escapeHtml(group.dateLabel) + '</span>' +
-        '<span class="text-sm text-gray-500">' + group.shifts.length + (group.shifts.length === 1 ? ' shift' : ' shifts') + '</span>' +
-      '</div>' +
-      '<div class="text-sm text-gray-600" style="line-height:1.5;">' + shiftParts.join('<br>') + '</div>' +
-      adjustedHtml +
-      badgeHtml +
-      '<div class="mt-3 flex justify-between items-center">' +
-        '<div class="shift-duration">' + totalStr + ' hrs</div>' +
-        '<button class="btn-edit text-sm px-3 py-2" data-action="edit-shift" data-shift-id="' + primaryShift.id + '">&#9999;&#65039; Edit</button>' +
+  function buildDateHeaderHtml(group) {
+    return '<div class="date-group-title">' + escapeHtml(group.dateLabel) + '</div>' +
+      '<div class="date-group-meta">' +
+        '<span>' + group.staffCount + (group.staffCount === 1 ? ' staff' : ' staff') + '</span>' +
+        '<span>&bull;</span>' +
+        '<span>' + group.totalHoursStr + (group.totalHoursStr === 1 ? ' hr' : ' hrs') + '</span>' +
       '</div>';
-
-    var editBtn = card.querySelector('[data-action="edit-shift"]');
-    if (editBtn) {
-      editBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        openShiftEdit(primaryShift);
-      });
-    }
-
-    return card;
   }
 
   // ===== Shift Card Building =====
