@@ -13,7 +13,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="MK ClockOn">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="styles.css?v=45">
+    <link rel="stylesheet" href="styles.css?v=49">
 </head>
 <body class="bg-gray-100 min-h-screen">
     <!-- Loading State -->
@@ -359,10 +359,12 @@
                     <label class="block text-sm text-gray-600 mb-1">Notes</label>
                     <textarea id="edit-shift-notes" class="w-full p-3 border border-gray-300 rounded-lg" rows="2"></textarea>
                 </div>
+                <!-- Reason input hidden per project policy: admin edits no longer require a reason. Audit log records NULL.
                 <div class="mb-4">
                     <label class="block text-sm text-gray-600 mb-1">Reason for adjustment*</label>
                     <input type="text" id="edit-shift-reason" class="w-full p-3 border border-gray-300 rounded-lg" placeholder="Required: why are you editing this shift?">
                 </div>
+                -->
                 <p class="text-xs text-gray-500 mb-4">Note: Adjustments are logged in the audit trail.</p>
                 <div class="flex gap-3">
                     <button type="button" id="shift-modal-cancel" class="flex-1 py-3 bg-gray-200 text-gray-800 rounded-lg font-semibold">Cancel</button>
@@ -415,7 +417,7 @@
     <script src="db.js?v=45"></script>
     <script src="auth.js?v=45"></script>
     <script src="app.js?v=45"></script>
-    <script src="admin-timesheet.js?v=45"></script>
+    <script src="admin-timesheet.js?v=49"></script>
     <script src="admin-roster.js?v=45"></script>
     <script src="admin.js?v=45"></script>
     <script>

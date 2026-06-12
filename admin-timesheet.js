@@ -20,6 +20,14 @@
   var VIEW_DATE = 'date';
   var VIEW_STAFF = 'staff';
 
+  // ===== Helpers =====
+  function toLocalDateTimeInput(isoString) {
+    var d = new Date(isoString);
+    var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+      'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+
   // ===== Public API =====
 
   /**
@@ -294,6 +302,8 @@
   }
 
   function buildStaffShiftTable(shifts) {
+    // Three-level grouping: staff -> day -> individual shift.
+    // Each shift is rendered as its own row with a per-shift Edit button.
     var wrapper = document.createElement('div');
     wrapper.className = 'staff-date-list';
     wrapper.style.display = 'flex';
@@ -322,95 +332,100 @@
     });
 
     dateGroups.forEach(function(day) {
-      wrapper.appendChild(buildStaffDateRow(day));
+      wrapper.appendChild(buildStaffDayGroup(day));
     });
 
     return wrapper;
   }
 
-  function buildStaffDateRow(day) {
-    var row = document.createElement('div');
-    row.className = 'timesheet-row';
-    row.style.display = 'flex';
-    row.style.alignItems = 'center';
-    row.style.gap = '12px';
+  /**
+   * Build a single day group: a header row summarising the day, plus a
+   * compact list of every individual shift under that day. Each shift
+   * exposes its own "Edit" button bound to the specific shift object.
+   */
+  function buildStaffDayGroup(day) {
+    var group = document.createElement('div');
+    group.className = 'staff-day-group';
 
-    var dateLabel = formatDateLabel(day.dateKey);
+    group.appendChild(buildStaffDayHeader(day));
 
-    // Build comma-separated shifts and compute total hours
-    var shiftParts = [];
+    var list = document.createElement('div');
+    list.className = 'staff-day-shifts';
+    day.shifts.forEach(function(shift) {
+      list.appendChild(buildStaffShiftRow(shift));
+    });
+    group.appendChild(list);
+
+    return group;
+  }
+
+  /**
+   * Day sub-header: e.g. "Monday, 12 Jun — 2 shifts, 7.5 h".
+   * Styled as a light gray bar above the per-shift list.
+   */
+  function buildStaffDayHeader(day) {
     var totalMs = 0;
     var hasActive = false;
-    var hasAdjusted = false;
-    var anyAlerts = [];
-
     day.shifts.forEach(function(shift) {
-      var isActive = !shift.clock_out;
-      var clockInStr = window.ClockDB.formatTime(shift.clock_in);
-      var clockOutStr = isActive ? 'Active' : window.ClockDB.formatTime(shift.clock_out);
-      shiftParts.push(
-        '<span class="text-green-600">' + clockInStr + '</span> &rarr; <span class="' + (isActive ? 'text-orange-600' : 'text-red-600') + '">' + clockOutStr + '</span>'
-      );
-      if (isActive) {
+      if (!shift.clock_out) {
         hasActive = true;
-      } else {
-        totalMs += window.ClockDB.calculateDuration(shift.clock_in, shift.clock_out);
+        return;
       }
-      if (shift.clock_in_adjusted || shift.clock_out_adjusted) {
-        hasAdjusted = true;
-      }
-      if (shift.staff) {
-        if (shift.staff.expected_start_time) {
-          var a = checkLateEarly(shift.clock_in, shift.staff.expected_start_time);
-          if (a) anyAlerts.push(a);
-        }
-        if (shift.clock_out && shift.staff.expected_end_time) {
-          var b = checkLateEarly(shift.clock_out, shift.staff.expected_end_time);
-          if (b) anyAlerts.push(b);
-        }
-      }
+      totalMs += window.ClockDB.calculateDuration(shift.clock_in, shift.clock_out);
     });
-
     var totalHours = totalMs / (1000 * 60 * 60);
-    var totalStr = hasActive ? totalHours.toFixed(2) + ' + active' : totalHours.toFixed(2);
+    var totalStr = hasActive
+      ? totalHours.toFixed(1) + ' h (+ active)'
+      : totalHours.toFixed(1) + ' h';
+    var shiftCount = day.shifts.length;
+    var shiftWord = shiftCount === 1 ? 'shift' : 'shifts';
 
-    var adjustedHtml = '';
-    if (hasAdjusted) {
-      adjustedHtml = '<span class="shift-adjusted-badge">adjusted</span>';
-    }
+    var header = document.createElement('div');
+    header.className = 'staff-day-group-header';
+    header.innerHTML =
+      '<span class="staff-day-group-label">' + escapeHtml(formatDateLabel(day.dateKey)) + '</span>' +
+      '<span class="staff-day-group-meta">' + shiftCount + ' ' + shiftWord + ' &middot; ' + escapeHtml(totalStr) + '</span>';
+    return header;
+  }
 
-    var badgeHtml = '';
-    if (anyAlerts.length > 0) {
-      var critical = anyAlerts.some(function(a) { return a.critical; });
-      row.classList.add(critical ? 'border-orange-400' : 'border-yellow-400');
-      row.classList.add('border-2');
-      badgeHtml = '<div class="flex flex-wrap gap-1 mt-1">' +
-        anyAlerts.map(function(a) {
-          var cls = a.critical ? 'late-badge-critical' : 'late-badge';
-          return '<span class="' + cls + '">' + escapeHtml(a.message) + '</span>';
-        }).join('') +
-        '</div>';
-    }
+  /**
+   * Render a single shift as a compact row with its own Edit button.
+   * The Edit button calls openShiftEdit(shift) for that exact shift.
+   */
+  function buildStaffShiftRow(shift) {
+    var row = document.createElement('div');
+    row.className = 'timesheet-row staff-shift-row';
 
-    var primaryShift = day.shifts[0];
+    var isActive = !shift.clock_out;
+    var clockInStr = window.ClockDB.formatTime(shift.clock_in);
+    var clockOutStr = isActive ? 'Active' : window.ClockDB.formatTime(shift.clock_out);
+    var duration = isActive
+      ? 'In progress'
+      : formatDecimalHours(window.ClockDB.calculateDuration(shift.clock_in, shift.clock_out));
+
+    var adjustedHtml = buildAdjustedBadges(shift);
+    var lateEarlyHtml = buildLateEarlyBadges(shift, row);
+
+    var clockOutCls = isActive ? 'text-orange-600' : 'text-red-600';
 
     row.innerHTML =
-      '<div style="flex:1; min-width:0;">' +
-        '<div class="font-semibold text-gray-800">' + escapeHtml(dateLabel) + '</div>' +
-        '<div class="text-sm text-gray-600" style="margin-top:2px;">' + shiftParts.join(', ') + '</div>' +
+      '<div class="staff-shift-row-main">' +
+        '<div class="staff-shift-row-times">' +
+          '<span><span class="text-green-600">' + clockInStr + '</span> &rarr; <span class="' + clockOutCls + '">' + clockOutStr + '</span></span>' +
+          '<span class="shift-duration">' + duration + '</span>' +
+        '</div>' +
         adjustedHtml +
-        badgeHtml +
+        lateEarlyHtml +
       '</div>' +
-      '<div style="text-align:right; white-space:nowrap;">' +
-        '<div class="shift-duration">' + totalStr + '</div>' +
-        '<button class="btn-edit text-sm px-3 py-2" data-action="edit-shift" data-shift-id="' + primaryShift.id + '" style="margin-top:4px;">&#9999;&#65039; Edit</button>' +
+      '<div class="staff-shift-row-actions">' +
+        '<button class="btn-edit text-sm px-3 py-2" data-action="edit-shift" data-shift-id="' + shift.id + '">&#9999;&#65039; Edit</button>' +
       '</div>';
 
     var editBtn = row.querySelector('[data-action="edit-shift"]');
     if (editBtn) {
       editBtn.addEventListener('click', function(e) {
         e.stopPropagation();
-        openShiftEdit(primaryShift);
+        openShiftEdit(shift);
       });
     }
 
@@ -726,8 +741,8 @@
 
     document.getElementById('edit-shift-id').value = shift.id;
     document.getElementById('edit-shift-staff-id').value = shift.staff_id || (shift.staff && shift.staff.id) || '';
-    document.getElementById('edit-clock-in').value = new Date(shift.clock_in).toISOString().slice(0, 16);
-    document.getElementById('edit-clock-out').value = shift.clock_out ? new Date(shift.clock_out).toISOString().slice(0, 16) : '';
+    document.getElementById('edit-clock-in').value = toLocalDateTimeInput(shift.clock_in);
+    document.getElementById('edit-clock-out').value = shift.clock_out ? toLocalDateTimeInput(shift.clock_out) : '';
     document.getElementById('edit-shift-notes').value = shift.notes || '';
 
     var reasonInput = document.getElementById('edit-shift-reason');
@@ -765,14 +780,15 @@
     var clockInVal = document.getElementById('edit-clock-in').value;
     var clockOutVal = document.getElementById('edit-clock-out').value;
     var notes = document.getElementById('edit-shift-notes').value.trim();
-    var reason = document.getElementById('edit-shift-reason').value.trim();
+    // Reason field is hidden in the admin UI; always pass null so the
+    // audit log records NULL for admin-driven edits per project policy.
+    var reason = null;
 
     if (!clockInVal) { showToast('Clock-in time is required.', 'error'); return; }
     if (clockOutVal && new Date(clockOutVal) <= new Date(clockInVal)) {
       showToast('Clock-out must be after clock-in.', 'error');
       return;
     }
-    if (!reason) { showToast('Reason for adjustment is required.', 'error'); return; }
 
     try {
       var currentShift = await window.ClockDB.getShiftById(shiftId);
@@ -782,7 +798,7 @@
         clockIn: new Date(clockInVal).toISOString(),
         clockOut: clockOutVal ? new Date(clockOutVal).toISOString() : null,
         notes: notes || null,
-        reason: reason || 'Manual adjustment by admin'
+        reason: reason
       });
 
       showToast('Shift updated. Change logged in audit trail.', 'success');

@@ -916,6 +916,92 @@ textarea:disabled {
     margin-bottom: 8px;
 }
 
+/* ===== Staff Timesheet 3-Level View (By Staff) ===== */
+.staff-day-group {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #fafbfc;
+}
+
+.staff-day-group + .staff-day-group {
+    margin-top: 8px;
+}
+
+.staff-day-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    background: #f1f5f9;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 0.8125rem;
+}
+
+.staff-day-group-label {
+    font-weight: 600;
+    color: #334155;
+}
+
+.staff-day-group-meta {
+    font-weight: 500;
+    color: #64748b;
+    font-variant-numeric: tabular-nums;
+}
+
+.staff-day-shifts {
+    display: flex;
+    flex-direction: column;
+}
+
+.staff-day-shifts .staff-shift-row + .staff-shift-row {
+    border-top: 1px solid #e2e8f0;
+}
+
+.staff-shift-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 0.5rem 0.75rem;
+    background: white;
+    border-radius: 0;
+    box-shadow: none;
+    font-size: 0.8125rem;
+}
+
+.staff-shift-row:hover {
+    background: #f8fafc;
+}
+
+.staff-shift-row-main {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-wrap: wrap;
+}
+
+.staff-shift-row-times {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #334155;
+    font-variant-numeric: tabular-nums;
+}
+
+.staff-shift-row-times .shift-duration {
+    color: #64748b;
+    font-weight: 500;
+}
+
+.staff-shift-row-actions {
+    flex: 0 0 auto;
+}
+
 .staff-day-totals {
     display: flex;
     flex-wrap: wrap;
