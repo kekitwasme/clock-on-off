@@ -268,15 +268,27 @@
       '<div class="staff-timesheet-header">' +
         '<div class="staff-timesheet-name">' + escapeHtml(group.staff.name) + '</div>' +
         '<div class="staff-timesheet-total">' + hours + ' hrs</div>' +
+        '<span class="staff-timesheet-chevron">&#9662;</span>' +
       '</div>' +
-      '<div class="staff-timesheet-badges">' + badges + '</div>' +
-      '<div class="staff-day-totals">' +
-        '<span class="day-total-badge day-total-weekday">Mon–Fri: ' + dayTotals.weekday.toFixed(1) + 'h</span>' +
-        '<span class="day-total-badge day-total-saturday">Sat: ' + dayTotals.saturday.toFixed(1) + 'h</span>' +
-        '<span class="day-total-badge day-total-sunday">Sun: ' + dayTotals.sunday.toFixed(1) + 'h</span>' +
+      '<div class="staff-timesheet-body">' +
+        '<div class="staff-timesheet-badges">' + badges + '</div>' +
+        '<div class="staff-day-totals">' +
+          '<span class="day-total-badge day-total-weekday">Mon–Fri: ' + dayTotals.weekday.toFixed(1) + 'h</span>' +
+          '<span class="day-total-badge day-total-saturday">Sat: ' + dayTotals.saturday.toFixed(1) + 'h</span>' +
+          '<span class="day-total-badge day-total-sunday">Sun: ' + dayTotals.sunday.toFixed(1) + 'h</span>' +
+        '</div>' +
       '</div>';
 
-    card.appendChild(buildStaffShiftTable(group.shifts));
+    var shiftTable = buildStaffShiftTable(group.shifts);
+    shiftTable.classList.add('staff-timesheet-shifts');
+    card.querySelector('.staff-timesheet-body').appendChild(shiftTable);
+
+    var header = card.querySelector('.staff-timesheet-header');
+    header.style.cursor = 'pointer';
+    header.addEventListener('click', function() {
+      card.classList.toggle('staff-timesheet-card-collapsed');
+    });
+
     return card;
   }
 

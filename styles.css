@@ -894,6 +894,34 @@ textarea:disabled {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 8px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.staff-timesheet-chevron {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    transition: transform 0.2s ease;
+    margin-left: 0.5rem;
+}
+
+.staff-timesheet-card-collapsed .staff-timesheet-chevron {
+    transform: rotate(-90deg);
+}
+
+.staff-timesheet-body {
+    transition: max-height 0.25s ease, opacity 0.2s ease;
+}
+
+.staff-timesheet-card-collapsed .staff-timesheet-body {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    margin: 0;
+}
+
+.staff-timesheet-card-collapsed .staff-timesheet-header {
+    margin-bottom: 0;
 }
 
 .staff-timesheet-name {
