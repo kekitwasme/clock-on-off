@@ -267,8 +267,10 @@
     card.innerHTML =
       '<div class="staff-timesheet-header">' +
         '<div class="staff-timesheet-name">' + escapeHtml(group.staff.name) + '</div>' +
-        '<div class="staff-timesheet-total">' + hours + ' hrs</div>' +
-        '<span class="staff-timesheet-chevron">&#9662;</span>' +
+        '<div class="staff-timesheet-right">' +
+          '<div class="staff-timesheet-total">' + hours + ' hrs</div>' +
+          '<span class="staff-timesheet-chevron">&#9662;</span>' +
+        '</div>' +
       '</div>' +
       '<div class="staff-timesheet-body">' +
         '<div class="staff-timesheet-badges">' + badges + '</div>' +

@@ -905,6 +905,12 @@ textarea:disabled {
     margin-left: 0.5rem;
 }
 
+.staff-timesheet-right {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+}
+
 .staff-timesheet-card-collapsed .staff-timesheet-chevron {
     transform: rotate(-90deg);
 }
