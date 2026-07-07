@@ -398,7 +398,7 @@
           group.dateLabel = dateStr;
         }
       }
-      group.totalHoursStr = Math.round(group.totalHours * 10) / 10;
+      group.totalHoursStr = group.totalHours.toFixed(2);
     });
 
     return result;
@@ -580,7 +580,7 @@
             '<div class="date-group-meta">' +
               '<span>' + group.shiftCount + (group.shiftCount === 1 ? ' shift' : ' shifts') + '</span>' +
               '<span>•</span>' +
-              '<span>' + group.totalHoursStr + (group.totalHoursStr === 1 ? ' hr' : ' hrs') + '</span>' +
+              '<span>' + group.totalHoursStr + (group.totalHours === 1 ? ' hr' : ' hrs') + '</span>' +
             '</div>';
 
           header.addEventListener('click', function() {

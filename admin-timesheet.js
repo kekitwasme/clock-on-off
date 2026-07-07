@@ -173,7 +173,7 @@
       '<div class="date-group-meta">' +
         '<span>' + group.staffCount + (group.staffCount === 1 ? ' staff' : ' staff') + '</span>' +
         '<span>&bull;</span>' +
-        '<span>' + group.totalHoursStr + (group.totalHoursStr === 1 ? ' hr' : ' hrs') + '</span>' +
+        '<span>' + group.totalHoursStr + (group.totalHours === 1 ? ' hr' : ' hrs') + '</span>' +
       '</div>';
   }
 
@@ -260,7 +260,7 @@
     var card = document.createElement('div');
     card.className = 'staff-timesheet-card';
 
-    var hours = (group.totalMinutes / 60).toFixed(1);
+    var hours = (group.totalMinutes / 60).toFixed(2);
     var badges = buildStaffBadges(group);
     var dayTotals = calculateDayTotals(group.shifts);
 
@@ -275,9 +275,9 @@
       '<div class="staff-timesheet-body">' +
         '<div class="staff-timesheet-badges">' + badges + '</div>' +
         '<div class="staff-day-totals">' +
-          '<span class="day-total-badge day-total-weekday">Mon–Fri: ' + dayTotals.weekday.toFixed(1) + 'h</span>' +
-          '<span class="day-total-badge day-total-saturday">Sat: ' + dayTotals.saturday.toFixed(1) + 'h</span>' +
-          '<span class="day-total-badge day-total-sunday">Sun: ' + dayTotals.sunday.toFixed(1) + 'h</span>' +
+          '<span class="day-total-badge day-total-weekday">Mon–Fri: ' + dayTotals.weekday.toFixed(2) + 'h</span>' +
+          '<span class="day-total-badge day-total-saturday">Sat: ' + dayTotals.saturday.toFixed(2) + 'h</span>' +
+          '<span class="day-total-badge day-total-sunday">Sun: ' + dayTotals.sunday.toFixed(2) + 'h</span>' +
         '</div>' +
       '</div>';
 
@@ -389,8 +389,8 @@
     });
     var totalHours = totalMs / (1000 * 60 * 60);
     var totalStr = hasActive
-      ? totalHours.toFixed(1) + ' h (+ active)'
-      : totalHours.toFixed(1) + ' h';
+      ? totalHours.toFixed(2) + ' h (+ active)'
+      : totalHours.toFixed(2) + ' h';
     var shiftCount = day.shifts.length;
     var shiftWord = shiftCount === 1 ? 'shift' : 'shifts';
 
@@ -476,7 +476,7 @@
 
     result.forEach(function(group) {
       group.dateLabel = formatDateLabel(group.dateKey);
-      group.totalHoursStr = Math.round(group.totalHours * 10) / 10;
+      group.totalHoursStr = group.totalHours.toFixed(2);
     });
 
     return result;
@@ -1012,7 +1012,7 @@
 
   function formatDecimalHours(ms) {
     var hours = ms / (1000 * 60 * 60);
-    return hours.toFixed(1) + ' h';
+    return hours.toFixed(2) + ' h';
   }
 
   function escapeHtml(text) {
