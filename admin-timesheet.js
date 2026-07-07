@@ -258,7 +258,7 @@
 
   function buildStaffCard(group) {
     var card = document.createElement('div');
-    card.className = 'staff-timesheet-card';
+    card.className = 'staff-timesheet-card staff-timesheet-card-collapsed';
 
     var hours = (group.totalMinutes / 60).toFixed(2);
     var badges = buildStaffBadges(group);
@@ -268,6 +268,7 @@
       '<div class="staff-timesheet-header">' +
         '<div class="staff-timesheet-name">' + escapeHtml(group.staff.name) + '</div>' +
         '<div class="staff-timesheet-right">' +
+          '<button class="staff-card-export-btn" data-action="export-staff" title="Export staff CSV" aria-label="Export ' + escapeHtml(group.staff.name) + ' CSV">&#8681;</button>' +
           '<div class="staff-timesheet-total">' + hours + ' hrs</div>' +
           '<span class="staff-timesheet-chevron">&#9662;</span>' +
         '</div>' +
@@ -290,6 +291,14 @@
     header.addEventListener('click', function() {
       card.classList.toggle('staff-timesheet-card-collapsed');
     });
+
+    var exportBtn = card.querySelector('[data-action="export-staff"]');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        exportStaffCSV(group);
+      });
+    }
 
     return card;
   }
@@ -711,27 +720,101 @@
     showToast('Exported ' + currentTimesheets.length + ' shifts.', 'success');
   }
 
-  function buildExportCSV() {
+  function buildExportCSV(shifts) {
+    shifts = shifts || currentTimesheets;
     var headers = ['Employee_Id', 'Department_Id', 'Type', 'Leave_Id', 'Start_Time', 'End_Time', 'Break', 'Date'];
     var lines = [headers.join(',')];
 
-    currentTimesheets.forEach(function(shift) {
-      lines.push(buildPayrollRow(shift).map(window.ClockDB.csvEscape).join(','));
+    groupPayrollDays(shifts).forEach(function(day) {
+      lines.push(buildPayrollRow(day).map(window.ClockDB.csvEscape).join(','));
     });
 
     return lines.join('\r\n');
   }
 
-  function buildPayrollRow(shift) {
+  function exportStaffCSV(group) {
+    if (!group || !group.shifts || group.shifts.length === 0) {
+      showToast('No timesheets to export for this staff member.', 'error');
+      return;
+    }
+
+    downloadCSV(buildExportCSV(group.shifts), 'timesheets_' + slugifyFilename(group.staff.name) + '_' + isoDate() + '.csv');
+    showToast('Exported ' + group.staff.name + ' timesheets.', 'success');
+  }
+
+  function groupPayrollDays(shifts) {
+    var groups = {};
+
+    shifts.forEach(function(shift) {
+      if (!shift || !shift.clock_in) return;
+
+      var key = getPayrollStaffKey(shift) + '|' + formatPayrollDateKey(shift.clock_in);
+      if (!groups[key]) {
+        groups[key] = {
+          sourceShift: shift,
+          shifts: []
+        };
+      }
+      groups[key].shifts.push(shift);
+    });
+
+    return Object.values(groups).map(buildPayrollDay);
+  }
+
+  function getPayrollStaffKey(shift) {
+    return shift.staff_id ||
+      (shift.staff && shift.staff.id) ||
+      getPayrollField(shift, 'employee_id', 'employeeId') ||
+      getPayrollField(shift, 'department_id', 'departmentId') ||
+      getStaffName(shift);
+  }
+
+  function buildPayrollDay(group) {
+    var sorted = group.shifts.slice().sort(function(a, b) {
+      return new Date(a.clock_in) - new Date(b.clock_in);
+    });
+    var firstShift = sorted[0];
+    var firstStart = new Date(firstShift.clock_in);
+    var lastEnd = null;
+    var totalBreakMinutes = 0;
+    var previousEnd = null;
+
+    sorted.forEach(function(shift) {
+      var start = new Date(shift.clock_in);
+      var end = shift.clock_out ? new Date(shift.clock_out) : null;
+
+      if (previousEnd && !isNaN(previousEnd.getTime()) && !isNaN(start.getTime()) && start > previousEnd) {
+        totalBreakMinutes += Math.round((start - previousEnd) / 60000);
+      }
+
+      totalBreakMinutes += Number(getBreakMinutes(shift)) || 0;
+
+      if (end && !isNaN(end.getTime()) && (!lastEnd || end > lastEnd)) {
+        lastEnd = end;
+      }
+      if (end && !isNaN(end.getTime())) {
+        previousEnd = end;
+      }
+    });
+
+    return {
+      sourceShift: firstShift,
+      firstStart: firstStart,
+      lastEnd: lastEnd,
+      breakMinutes: totalBreakMinutes
+    };
+  }
+
+  function buildPayrollRow(day) {
     return [
-      getPayrollField(shift, 'employee_id', 'employeeId'),
-      getPayrollField(shift, 'department_id', 'departmentId'),
+      getPayrollField(day.sourceShift, 'employee_id', 'employeeId'),
+      getPayrollField(day.sourceShift, 'department_id', 'departmentId'),
       'T',
       '',
-      formatPayrollTime(shift.clock_in),
-      shift.clock_out ? formatPayrollTime(shift.clock_out) : '',
-      getBreakMinutes(shift),
-      formatPayrollDate(shift.clock_in)
+      formatPayrollTime(day.firstStart),
+      day.lastEnd ? formatPayrollTime(day.lastEnd) : '',
+      day.breakMinutes || '',
+      formatPayrollDate(day.firstStart)
     ];
   }
 
@@ -767,6 +850,13 @@
     var date = new Date(isoString);
     if (isNaN(date.getTime())) return '';
     return date.getDate() + '/' + String(date.getMonth() + 1).padStart(2, '0') + '/' + date.getFullYear();
+  }
+
+  function formatPayrollDateKey(isoString) {
+    if (!isoString) return '';
+    var date = new Date(isoString);
+    if (isNaN(date.getTime())) return '';
+    return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
   }
 
   function downloadCSV(content, filename) {
@@ -1036,6 +1126,14 @@
 
   function isoDate() {
     return new Date().toISOString().split('T')[0];
+  }
+
+  function slugifyFilename(value) {
+    return String(value || 'staff')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'staff';
   }
 
   function showToast(message, type) {

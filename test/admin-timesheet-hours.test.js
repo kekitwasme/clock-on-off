@@ -124,4 +124,6 @@ test('renders decimal hour totals to two decimal places', () => {
   assert.match(container.innerHTML, /Mon(?:&ndash;|–)Fri: 8\.00h/);
   assert.match(container.innerHTML, /3\.75 h/);
   assert.match(container.innerHTML, /4\.25 h/);
+  assert.match(container.innerHTML, /staff-timesheet-card staff-timesheet-card-collapsed/);
+  assert.match(container.innerHTML, /data-action="export-staff"/);
 });

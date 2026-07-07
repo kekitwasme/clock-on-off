@@ -908,7 +908,24 @@ textarea:disabled {
 .staff-timesheet-right {
     display: flex;
     align-items: center;
+    gap: 0.5rem;
     margin-left: auto;
+}
+
+.staff-card-export-btn {
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    background: #eff6ff;
+    color: #2563eb;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.staff-card-export-btn:hover {
+    background: #dbeafe;
+    border-color: #93c5fd;
 }
 
 .staff-timesheet-card-collapsed .staff-timesheet-chevron {
