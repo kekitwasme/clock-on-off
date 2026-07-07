@@ -349,6 +349,27 @@
         </div>
     </div>
 
+    <!-- Export Timesheets Modal -->
+    <div id="timesheet-export-modal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <h2 class="text-xl font-bold mb-4">Export Timesheets</h2>
+            <form id="timesheet-export-form">
+                <div class="mb-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="block text-sm text-gray-600">Staff</label>
+                        <button type="button" id="timesheet-export-toggle-all" class="text-sm text-blue-600 font-semibold">Select all</button>
+                    </div>
+                    <div id="timesheet-export-staff-list" class="timesheet-export-staff-list"></div>
+                </div>
+                <div class="flex gap-3">
+                    <button type="button" id="timesheet-export-cancel" class="flex-1 py-3 bg-gray-200 text-gray-800 rounded-lg font-semibold">Cancel</button>
+                    <button type="submit" class="flex-1 py-3 bg-blue-600 text-white rounded-lg font-semibold">Export</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Edit Shift Modal (Admin) -->
     <div id="shift-modal" class="modal hidden">
         <div class="modal-overlay"></div>

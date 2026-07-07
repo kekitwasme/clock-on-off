@@ -37,6 +37,7 @@
     initStaffFilter();
     initViewToggles();
     initExportButton();
+    initExportModal();
     initAddEntryButton();
     initAddEntryModal();
   }
@@ -707,17 +708,23 @@
   // ===== CSV Export =====
 
   function exportCSV() {
-    exportPayrollCSV();
+    showExportModal();
   }
 
-  function exportPayrollCSV() {
+  function exportPayrollCSV(shifts, label) {
+    shifts = shifts || currentTimesheets;
     if (!currentTimesheets || currentTimesheets.length === 0) {
       showToast('No timesheets to export.', 'error');
       return;
     }
+    if (!shifts || shifts.length === 0) {
+      showToast('Select at least one staff member to export.', 'error');
+      return;
+    }
 
-    downloadCSV(buildExportCSV(), 'timesheets_' + isoDate() + '.csv');
-    showToast('Exported ' + currentTimesheets.length + ' shifts.', 'success');
+    var suffix = label ? '_' + slugifyFilename(label) : '';
+    downloadCSV(buildExportCSV(shifts), 'timesheets' + suffix + '_' + isoDate() + '.csv');
+    showToast('Exported ' + shifts.length + ' shifts.', 'success');
   }
 
   function buildExportCSV(shifts) {
@@ -740,6 +747,85 @@
 
     downloadCSV(buildExportCSV(group.shifts), 'timesheets_' + slugifyFilename(group.staff.name) + '_' + isoDate() + '.csv');
     showToast('Exported ' + group.staff.name + ' timesheets.', 'success');
+  }
+
+  function getExportStaffOptions() {
+    var options = [];
+    var seen = {};
+
+    currentTimesheets.forEach(function(shift) {
+      var id = getPayrollStaffKey(shift);
+      if (!id || seen[id]) return;
+      seen[id] = {
+        id: id,
+        name: getStaffName(shift),
+        shiftCount: 0
+      };
+      options.push(seen[id]);
+    });
+
+    currentTimesheets.forEach(function(shift) {
+      var id = getPayrollStaffKey(shift);
+      if (seen[id]) seen[id].shiftCount++;
+    });
+
+    return options;
+  }
+
+  function showExportModal() {
+    if (!currentTimesheets || currentTimesheets.length === 0) {
+      showToast('No timesheets to export.', 'error');
+      return;
+    }
+
+    var modal = document.getElementById('timesheet-export-modal');
+    var list = document.getElementById('timesheet-export-staff-list');
+    if (!modal || !list) {
+      exportPayrollCSV();
+      return;
+    }
+
+    list.innerHTML = getExportStaffOptions().map(function(option) {
+      return '<div class="timesheet-export-staff-option">' +
+        '<label>' +
+          '<input type="checkbox" name="timesheet-export-staff" value="' + escapeHtml(option.id) + '" checked>' +
+          '<span>' + escapeHtml(option.name) + '</span>' +
+        '</label>' +
+        '<span class="timesheet-export-staff-count">' + option.shiftCount + (option.shiftCount === 1 ? ' shift' : ' shifts') + '</span>' +
+      '</div>';
+    }).join('');
+
+    var toggleAllBtn = document.getElementById('timesheet-export-toggle-all');
+    if (toggleAllBtn) toggleAllBtn.textContent = 'Clear all';
+
+    modal.classList.remove('hidden');
+  }
+
+  function hideExportModal() {
+    var modal = document.getElementById('timesheet-export-modal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function submitExportSelection() {
+    var checked = Array.from(document.querySelectorAll('input[name="timesheet-export-staff"]:checked'));
+    var selected = {};
+    checked.forEach(function(input) {
+      selected[input.value] = true;
+    });
+    var optionsById = {};
+    getExportStaffOptions().forEach(function(option) {
+      optionsById[option.id] = option;
+    });
+
+    var shifts = currentTimesheets.filter(function(shift) {
+      return selected[getPayrollStaffKey(shift)];
+    });
+
+    var label = checked.length === 1 && optionsById[checked[0].value]
+      ? optionsById[checked[0].value].name
+      : 'selected';
+    exportPayrollCSV(shifts, label);
+    hideExportModal();
   }
 
   function groupPayrollDays(shifts) {
@@ -1101,6 +1187,30 @@
     }
   }
 
+  function initExportModal() {
+    var cancelBtn = document.getElementById('timesheet-export-cancel');
+    var form = document.getElementById('timesheet-export-form');
+    var overlay = document.querySelector('#timesheet-export-modal .modal-overlay');
+    var toggleAllBtn = document.getElementById('timesheet-export-toggle-all');
+
+    if (cancelBtn) cancelBtn.addEventListener('click', hideExportModal);
+    if (overlay) overlay.addEventListener('click', hideExportModal);
+    if (form) {
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        submitExportSelection();
+      });
+    }
+    if (toggleAllBtn) {
+      toggleAllBtn.addEventListener('click', function() {
+        var boxes = Array.from(document.querySelectorAll('input[name="timesheet-export-staff"]'));
+        var shouldCheck = boxes.some(function(box) { return !box.checked; });
+        boxes.forEach(function(box) { box.checked = shouldCheck; });
+        toggleAllBtn.textContent = shouldCheck ? 'Clear all' : 'Select all';
+      });
+    }
+  }
+
   // ===== Utilities =====
 
   function getContainer() {
@@ -1199,6 +1309,7 @@
     getDateFilter: getDateFilter,
     getData: getData,
     render: render,
-    buildExportCSV: buildExportCSV
+    buildExportCSV: buildExportCSV,
+    getExportStaffOptions: getExportStaffOptions
   };
 })();

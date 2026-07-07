@@ -180,3 +180,36 @@ test('can build an export for one staff card only', () => {
     ].join('\r\n')
   );
 });
+
+test('lists staff choices for the global export picker', () => {
+  const api = loadTimesheetModule();
+
+  api.getData().push(
+    {
+      id: 'shift-1',
+      staff_id: 'staff-1',
+      staff: { id: 'staff-1', name: 'Bidha', employee_id: '547' },
+      clock_in: '2022-01-12T09:00:00.000+08:00',
+      clock_out: '2022-01-12T17:00:00.000+08:00'
+    },
+    {
+      id: 'shift-2',
+      staff_id: 'staff-1',
+      staff: { id: 'staff-1', name: 'Bidha', employee_id: '547' },
+      clock_in: '2022-01-13T09:00:00.000+08:00',
+      clock_out: '2022-01-13T15:00:00.000+08:00'
+    },
+    {
+      id: 'shift-3',
+      staff_id: 'staff-2',
+      staff: { id: 'staff-2', name: 'Alex', employee_id: '511' },
+      clock_in: '2022-01-12T09:00:00.000+08:00',
+      clock_out: '2022-01-12T15:00:00.000+08:00'
+    }
+  );
+
+  assert.deepEqual(JSON.parse(JSON.stringify(api.getExportStaffOptions())), [
+    { id: 'staff-1', name: 'Bidha', shiftCount: 2 },
+    { id: 'staff-2', name: 'Alex', shiftCount: 1 }
+  ]);
+});
