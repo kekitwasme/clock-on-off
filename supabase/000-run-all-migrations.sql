@@ -24,10 +24,12 @@ CREATE TABLE staff (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL CHECK (char_length(trim(name)) > 0),
     pin_hash TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'staff' CHECK (role IN ('staff', 'admin')),
+    role TEXT NOT NULL DEFAULT 'staff' CHECK (role IN ('staff', 'admin', 'observer')),
     active BOOLEAN NOT NULL DEFAULT true,
     failed_attempts INTEGER NOT NULL DEFAULT 0,
     locked_until TIMESTAMPTZ,
+    employee_id TEXT,
+    department_id TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -570,7 +572,9 @@ CREATE OR REPLACE FUNCTION create_staff_with_pin(
     p_name TEXT,
     p_pin TEXT,
     p_role TEXT DEFAULT 'staff',
-    p_active BOOLEAN DEFAULT true
+    p_active BOOLEAN DEFAULT true,
+    p_employee_id TEXT DEFAULT NULL,
+    p_department_id TEXT DEFAULT NULL
 )
 RETURNS JSON AS $$
 DECLARE
@@ -595,14 +599,21 @@ BEGIN
             USING ERRCODE = '22023';
     END IF;
 
-    IF p_role IS NULL OR p_role NOT IN ('staff', 'admin') THEN
-        RAISE EXCEPTION 'Role must be staff or admin.'
+    IF p_role IS NULL OR p_role NOT IN ('staff', 'admin', 'observer') THEN
+        RAISE EXCEPTION 'Role must be staff, admin, or observer.'
             USING ERRCODE = '22023';
     END IF;
 
     -- Insert with bcrypt hash (cost factor 8 — adjust higher for more security)
-    INSERT INTO staff (name, pin_hash, role, active)
-    VALUES (trim(p_name), crypt(p_pin, gen_salt('bf', 8)), p_role, p_active)
+    INSERT INTO staff (name, pin_hash, role, active, employee_id, department_id)
+    VALUES (
+        trim(p_name),
+        crypt(p_pin, gen_salt('bf', 8)),
+        p_role,
+        p_active,
+        NULLIF(trim(p_employee_id), ''),
+        NULLIF(trim(p_department_id), '')
+    )
     RETURNING * INTO v_new_staff;
 
     RETURN json_build_object(
@@ -610,6 +621,8 @@ BEGIN
         'name', v_new_staff.name,
         'role', v_new_staff.role,
         'active', v_new_staff.active,
+        'employee_id', v_new_staff.employee_id,
+        'department_id', v_new_staff.department_id,
         'created_at', v_new_staff.created_at
     );
 
@@ -626,7 +639,9 @@ CREATE OR REPLACE FUNCTION update_staff_with_pin(
     p_name TEXT DEFAULT NULL,
     p_pin TEXT DEFAULT NULL,
     p_role TEXT DEFAULT NULL,
-    p_active BOOLEAN DEFAULT NULL
+    p_active BOOLEAN DEFAULT NULL,
+    p_employee_id TEXT DEFAULT NULL,
+    p_department_id TEXT DEFAULT NULL
 )
 RETURNS JSON AS $$
 DECLARE
@@ -664,7 +679,9 @@ BEGIN
         name       = COALESCE(trim(p_name), name),
         pin_hash   = COALESCE(crypt(p_pin, gen_salt('bf', 8)), pin_hash),
         role       = COALESCE(p_role, role),
-        active     = COALESCE(p_active, active)
+        active     = COALESCE(p_active, active),
+        employee_id = CASE WHEN p_employee_id IS NULL THEN v_existing.employee_id ELSE NULLIF(trim(p_employee_id), '') END,
+        department_id = CASE WHEN p_department_id IS NULL THEN v_existing.department_id ELSE NULLIF(trim(p_department_id), '') END
     WHERE id = p_staff_id;
 
     RETURN json_build_object('success', true);

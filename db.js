@@ -262,7 +262,7 @@
     var client = getClient();
     var result = await client
       .from('staff')
-      .select('id, name, role, active, expected_start_time, expected_end_time, failed_attempts, locked_until, created_at')
+      .select('id, name, role, active, employee_id, department_id, expected_start_time, expected_end_time, failed_attempts, locked_until, created_at')
       .order('name', { ascending: true });
 
     if (result.error) {
@@ -286,6 +286,8 @@
       p_pin: staffData.pin,
       p_role: staffData.role || 'staff',
       p_active: staffData.active !== undefined ? staffData.active : true,
+      p_employee_id: staffData.employeeId !== undefined ? staffData.employeeId : null,
+      p_department_id: staffData.departmentId !== undefined ? staffData.departmentId : null,
       p_expected_start_time: staffData.expectedStartTime || null,
       p_expected_end_time: staffData.expectedEndTime || null
     });
@@ -313,6 +315,8 @@
       p_pin: updates.pin || null,
       p_role: updates.role !== undefined ? updates.role : null,
       p_active: updates.active !== undefined ? updates.active : null,
+      p_employee_id: updates.employeeId !== undefined ? updates.employeeId : null,
+      p_department_id: updates.departmentId !== undefined ? updates.departmentId : null,
       p_expected_start_time: updates.expectedStartTime !== undefined ? (updates.expectedStartTime || null) : null,
       p_expected_end_time: updates.expectedEndTime !== undefined ? (updates.expectedEndTime || null) : null
     };
@@ -497,7 +501,7 @@
     var client = getClient();
     var query = client
       .from('shifts')
-      .select('\n            id,\n            staff_id,\n            clock_in,\n            clock_out,\n            clock_in_adjusted,\n            clock_out_adjusted,\n            notes,\n            created_at,\n            staff:staff_id ( id, name, role )\n        ');
+      .select('\n            id,\n            staff_id,\n            clock_in,\n            clock_out,\n            clock_in_adjusted,\n            clock_out_adjusted,\n            notes,\n            created_at,\n            staff:staff_id ( id, name, role, employee_id, department_id )\n        ');
 
     if (filters.staffId) {
       query = query.eq('staff_id', filters.staffId);

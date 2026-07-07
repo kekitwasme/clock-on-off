@@ -14,10 +14,12 @@
 --   id                       UUID PRIMARY KEY
 --   name                     TEXT NOT NULL, UNIQUE
 --   pin_hash                 TEXT NOT NULL (bcrypt hashed)
---   role                     TEXT CHECK ('staff' | 'admin')
+--   role                     TEXT CHECK ('staff' | 'admin' | 'observer')
 --   active                   BOOLEAN NOT NULL DEFAULT true
 --   failed_attempts          INTEGER NOT NULL DEFAULT 0
 --   locked_until             TIMESTAMPTZ (NULL when not locked)
+--   employee_id              TEXT NULL — payroll employee identifier
+--   department_id            TEXT NULL — payroll department identifier
 --   expected_start_time      TIME NULL — expected daily shift start
 --   expected_end_time        TIME NULL — expected daily shift end
 --   created_at               TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -29,7 +31,7 @@
 --
 -- Constraints:
 --   - UNIQUE (name)
---   - CHECK (role IN ('staff', 'admin'))
+--   - CHECK (role IN ('staff', 'admin', 'observer'))
 --
 -- Notes:
 --   - expected_start_time and expected_end_time are nullable
@@ -43,10 +45,12 @@ CREATE TABLE staff (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL CHECK (char_length(trim(name)) > 0) UNIQUE,
     pin_hash TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'staff' CHECK (role IN ('staff', 'admin')),
+    role TEXT NOT NULL DEFAULT 'staff' CHECK (role IN ('staff', 'admin', 'observer')),
     active BOOLEAN NOT NULL DEFAULT true,
     failed_attempts INTEGER NOT NULL DEFAULT 0,
     locked_until TIMESTAMPTZ,
+    employee_id TEXT,
+    department_id TEXT,
     expected_start_time TIME,
     expected_end_time TIME,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),

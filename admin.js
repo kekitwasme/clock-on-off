@@ -173,13 +173,19 @@
     var lockBadge = staff.locked_until
       ? '<span class="text-xs text-red-600 font-semibold">\uD83D\uDD12 Locked until ' + escapeHtml(staff.locked_until.slice(0, 16).replace('T', ' ')) + '</span>'
       : '';
+    var payrollBadges = [];
+    if (staff.employee_id) payrollBadges.push('Employee ' + escapeHtml(staff.employee_id));
+    if (staff.department_id) payrollBadges.push('Dept ' + escapeHtml(staff.department_id));
+    var payrollBadge = payrollBadges.length > 0
+      ? '<span class="text-xs text-gray-600 font-semibold">' + payrollBadges.join(' \u2022 ') + '</span>'
+      : '';
 
     card.innerHTML = '<div class="staff-info">' +
         '<div class="flex items-center gap-2 mb-1">' +
           '<span class="font-semibold text-gray-800">' + escapeHtml(staff.name) + '</span>' +
           roleBadge +
         '</div>' +
-        '<div class="text-sm text-gray-500">' + statusBadge + (expectedTimeBadge ? ' \u2022 ' + expectedTimeBadge : '') + (lockBadge ? ' \u2022 ' + lockBadge : '') + '</div>' +
+        '<div class="text-sm text-gray-500">' + statusBadge + (payrollBadge ? ' \u2022 ' + payrollBadge : '') + (expectedTimeBadge ? ' \u2022 ' + expectedTimeBadge : '') + (lockBadge ? ' \u2022 ' + lockBadge : '') + '</div>' +
       '</div>' +
       '<div class="staff-actions">' +
         '<button class="btn-edit" data-action="edit" data-staff-id="' + staff.id + '">\u270F\uFE0F</button>' +
@@ -219,6 +225,8 @@
       document.getElementById('staff-pin-input').value = '';
       document.getElementById('staff-pin-input').placeholder = 'Leave blank to keep current';
       document.getElementById('staff-role-input').value = staff.role;
+      document.getElementById('staff-employee-id-input').value = staff.employee_id || '';
+      document.getElementById('staff-department-id-input').value = staff.department_id || '';
       document.getElementById('staff-active-input').checked = staff.active;
       document.getElementById('staff-expected-start-input').value = staff.expected_start_time || '';
       document.getElementById('staff-expected-end-input').value = staff.expected_end_time || '';
@@ -228,6 +236,8 @@
       document.getElementById('staff-pin-input').value = '';
       document.getElementById('staff-pin-input').placeholder = '4-6 digits';
       document.getElementById('staff-role-input').value = 'staff';
+      document.getElementById('staff-employee-id-input').value = '';
+      document.getElementById('staff-department-id-input').value = '';
       document.getElementById('staff-active-input').checked = true;
       document.getElementById('staff-expected-start-input').value = '';
       document.getElementById('staff-expected-end-input').value = '';
@@ -306,6 +316,8 @@
     var name = document.getElementById('staff-name-input').value.trim();
     var pin = document.getElementById('staff-pin-input').value.trim();
     var role = document.getElementById('staff-role-input').value;
+    var employeeId = document.getElementById('staff-employee-id-input').value.trim();
+    var departmentId = document.getElementById('staff-department-id-input').value.trim();
     var active = document.getElementById('staff-active-input').checked;
     var expectedStart = document.getElementById('staff-expected-start-input').value || null;
     var expectedEnd = document.getElementById('staff-expected-end-input').value || null;
@@ -328,6 +340,8 @@
       var staffData = {
         name: name,
         role: role,
+        employeeId: employeeId,
+        departmentId: departmentId,
         active: active,
         expectedStartTime: expectedStart,
         expectedEndTime: expectedEnd

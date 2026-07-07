@@ -698,41 +698,75 @@
   // ===== CSV Export =====
 
   function exportCSV() {
-    exportDetailCSV();
+    exportPayrollCSV();
   }
 
-  function exportDetailCSV() {
+  function exportPayrollCSV() {
     if (!currentTimesheets || currentTimesheets.length === 0) {
       showToast('No timesheets to export.', 'error');
       return;
     }
 
-    var grouped = groupByDate(currentTimesheets);
-    var headers = ['staff_name', 'date', 'clock_in', 'clock_out', 'duration_minutes', 'clock_in_adjusted', 'clock_out_adjusted', 'notes'];
+    downloadCSV(buildExportCSV(), 'timesheets_' + isoDate() + '.csv');
+    showToast('Exported ' + currentTimesheets.length + ' shifts.', 'success');
+  }
+
+  function buildExportCSV() {
+    var headers = ['Employee_Id', 'Department_Id', 'Type', 'Leave_Id', 'Start_Time', 'End_Time', 'Break', 'Date'];
     var lines = [headers.join(',')];
 
-    grouped.forEach(function(group) {
-      lines.push(['DATE: ' + group.dateLabel, group.dateKey, '', '', '', '', '', group.staffCount + ' staff, ' + group.totalHoursStr + ' hrs'].map(window.ClockDB.csvEscape).join(','));
-
-      group.shifts.forEach(function(shift) {
-        lines.push([
-          getStaffName(shift),
-          window.ClockDB.formatDate(shift.clock_in),
-          window.ClockDB.formatDateTime(shift.clock_in),
-          shift.clock_out ? window.ClockDB.formatDateTime(shift.clock_out) : '',
-          shift.clock_out ? Math.round(window.ClockDB.calculateDuration(shift.clock_in, shift.clock_out) / 60000) : '',
-          shift.clock_in_adjusted ? 'Yes' : 'No',
-          shift.clock_out_adjusted ? 'Yes' : 'No',
-          (shift.notes || '').replace(/"/g, '""')
-        ].map(window.ClockDB.csvEscape).join(','));
-      });
-
-      lines.push(['SUBTOTAL', group.dateKey, '', '', Math.round(group.totalHours * 60), '', '', group.staffCount + ' shifts, ' + group.totalHoursStr + ' hours'].map(window.ClockDB.csvEscape).join(','));
-      lines.push(['', '', '', '', '', '', '', ''].join(','));
+    currentTimesheets.forEach(function(shift) {
+      lines.push(buildPayrollRow(shift).map(window.ClockDB.csvEscape).join(','));
     });
 
-    downloadCSV(lines.join('\r\n'), 'timesheets_' + isoDate() + '.csv');
-    showToast('Exported ' + currentTimesheets.length + ' shifts.', 'success');
+    return lines.join('\r\n');
+  }
+
+  function buildPayrollRow(shift) {
+    return [
+      getPayrollField(shift, 'employee_id', 'employeeId'),
+      getPayrollField(shift, 'department_id', 'departmentId'),
+      'T',
+      '',
+      formatPayrollTime(shift.clock_in),
+      shift.clock_out ? formatPayrollTime(shift.clock_out) : '',
+      getBreakMinutes(shift),
+      formatPayrollDate(shift.clock_in)
+    ];
+  }
+
+  function getPayrollField(shift, snakeKey, camelKey) {
+    if (shift[snakeKey] !== undefined && shift[snakeKey] !== null) return shift[snakeKey];
+    if (shift[camelKey] !== undefined && shift[camelKey] !== null) return shift[camelKey];
+    if (shift.staff) {
+      if (shift.staff[snakeKey] !== undefined && shift.staff[snakeKey] !== null) return shift.staff[snakeKey];
+      if (shift.staff[camelKey] !== undefined && shift.staff[camelKey] !== null) return shift.staff[camelKey];
+    }
+    return '';
+  }
+
+  function getBreakMinutes(shift) {
+    var value = shift.break_minutes;
+    if (value === undefined || value === null) value = shift.breakMinutes;
+    if (value === undefined || value === null) value = shift.break_duration_minutes;
+    if (value === undefined || value === null) value = shift.breakDurationMinutes;
+    if (value === undefined || value === null || value === '') return '';
+    var minutes = Number(value);
+    return isNaN(minutes) ? '' : Math.round(minutes);
+  }
+
+  function formatPayrollTime(isoString) {
+    if (!isoString) return '';
+    var date = new Date(isoString);
+    if (isNaN(date.getTime())) return '';
+    return date.getHours() + ':' + String(date.getMinutes()).padStart(2, '0');
+  }
+
+  function formatPayrollDate(isoString) {
+    if (!isoString) return '';
+    var date = new Date(isoString);
+    if (isNaN(date.getTime())) return '';
+    return date.getDate() + '/' + String(date.getMonth() + 1).padStart(2, '0') + '/' + date.getFullYear();
   }
 
   function downloadCSV(content, filename) {
@@ -1066,6 +1100,7 @@
     setDateFilter: setDateFilter,
     getDateFilter: getDateFilter,
     getData: getData,
-    render: render
+    render: render,
+    buildExportCSV: buildExportCSV
   };
 })();
