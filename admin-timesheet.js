@@ -963,7 +963,17 @@
 
   // ===== Shift Edit Modal =====
 
+  var shiftMutationPending = false;
+
+  function setShiftMutationPending(pending) {
+    shiftMutationPending = pending;
+    document.querySelectorAll('#shift-form button').forEach(function(button) {
+      button.disabled = pending;
+    });
+  }
+
   function openShiftEdit(shift) {
+    if (shiftMutationPending) return;
     var modal = document.getElementById('shift-modal');
     if (!modal) return;
 
@@ -981,8 +991,11 @@
 
   function initShiftEditModal() {
     var cancelBtn = document.getElementById('shift-modal-cancel');
+    var deleteBtn = document.getElementById('shift-delete-btn');
     var form = document.getElementById('shift-form');
     var overlay = document.querySelector('#shift-modal .modal-overlay');
+
+    if (deleteBtn) deleteBtn.addEventListener('click', deleteShiftEntry);
 
     if (cancelBtn) {
       cancelBtn.addEventListener('click', hideModal);
@@ -998,12 +1011,37 @@
     }
 
     function hideModal() {
+      if (shiftMutationPending) return;
       var modal = document.getElementById('shift-modal');
       if (modal) modal.classList.add('hidden');
     }
   }
 
+  async function deleteShiftEntry() {
+    if (shiftMutationPending) return;
+    if (!window.ClockAuth || !window.ClockAuth.isAdmin()) {
+      showToast('Admin access required.', 'error');
+      return;
+    }
+    var shiftId = document.getElementById('edit-shift-id').value;
+    if (!shiftId) return;
+    if (!window.confirm('Delete this shift entry?\n\nThis cannot be undone. It will be removed from timesheets and exports, and recorded in the audit log.')) return;
+
+    setShiftMutationPending(true);
+    try {
+      await window.ClockDB.deleteShift(shiftId);
+      document.getElementById('shift-modal').classList.add('hidden');
+      showToast('Shift deleted. Recorded in the audit log.', 'success');
+      await load();
+    } catch (err) {
+      showToast(err.message || 'Failed to delete shift.', 'error');
+    } finally {
+      setShiftMutationPending(false);
+    }
+  }
+
   async function submitShiftEdit() {
+    if (shiftMutationPending) return;
     var shiftId = document.getElementById('edit-shift-id').value;
     var clockInVal = document.getElementById('edit-clock-in').value;
     var clockOutVal = document.getElementById('edit-clock-out').value;
@@ -1018,6 +1056,7 @@
       return;
     }
 
+    setShiftMutationPending(true);
     try {
       var currentShift = await window.ClockDB.getShiftById(shiftId);
       if (!currentShift) { showToast('Shift not found.', 'error'); return; }
@@ -1035,6 +1074,8 @@
     } catch (err) {
       console.error('Failed to update shift:', err);
       showToast(err.message || 'Failed to update shift.', 'error');
+    } finally {
+      setShiftMutationPending(false);
     }
   }
 

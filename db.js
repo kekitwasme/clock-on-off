@@ -573,6 +573,12 @@
 
   // ===== Roster Functions =====
 
+  async function deleteShift(shiftId) {
+    var result = await getClient().rpc('admin_delete_shift', { p_shift_id: shiftId });
+    if (result.error) throw new Error('Failed to delete shift: ' + result.error.message);
+    return result.data;
+  }
+
   /**
    * Create a roster entry (admin only).
    * @param {object} entry - { staffId, date, startTime, endTime, notes? }
@@ -874,6 +880,7 @@
     getShiftById: getShiftById,
     getAllShifts: getAllShifts,
     updateShift: updateShift,
+    deleteShift: deleteShift,
     getAuditLog: getAuditLog,
     createRosterEntry: createRosterEntry,
     updateRosterEntry: updateRosterEntry,
