@@ -269,7 +269,7 @@
       '<div class="staff-timesheet-header">' +
         '<div class="staff-timesheet-name">' + escapeHtml(group.staff.name) + '</div>' +
         '<div class="staff-timesheet-right">' +
-          '<button class="staff-card-export-btn" data-action="export-staff" title="Export staff CSV" aria-label="Export ' + escapeHtml(group.staff.name) + ' CSV">&#8681;</button>' +
+          '<button class="staff-card-export-btn" data-action="export-staff" ' + (group.shifts.some(hasEmployeeId) ? '' : 'disabled ') + 'title="' + (group.shifts.some(hasEmployeeId) ? 'Export staff CSV' : 'Missing employee ID') + '" aria-label="Export ' + escapeHtml(group.staff.name) + ' CSV">&#8681;</button>' +
           '<div class="staff-timesheet-total">' + hours + ' hrs</div>' +
           '<span class="staff-timesheet-chevron">&#9662;</span>' +
         '</div>' +
@@ -712,7 +712,7 @@
   }
 
   function exportPayrollCSV(shifts, label) {
-    shifts = shifts || currentTimesheets;
+    shifts = (shifts || currentTimesheets).filter(hasEmployeeId);
     if (!currentTimesheets || currentTimesheets.length === 0) {
       showToast('No timesheets to export.', 'error');
       return;
@@ -732,7 +732,7 @@
     var headers = ['Employee_Id', 'Department_Id', 'Type', 'Leave_Id', 'Start_Time', 'End_Time', 'Break', 'Date'];
     var lines = [headers.join(',')];
 
-    groupPayrollDays(shifts).forEach(function(day) {
+    groupPayrollDays(shifts.filter(hasEmployeeId)).forEach(function(day) {
       lines.push(buildPayrollRow(day).map(window.ClockDB.csvEscape).join(','));
     });
 
@@ -745,8 +745,11 @@
       return;
     }
 
-    downloadCSV(buildExportCSV(group.shifts), 'timesheets_' + slugifyFilename(group.staff.name) + '_' + isoDate() + '.csv');
-    showToast('Exported ' + group.staff.name + ' timesheets.', 'success');
+    exportPayrollCSV(group.shifts, group.staff.name);
+  }
+
+  function hasEmployeeId(shift) {
+    return String(getPayrollField(shift, 'employee_id', 'employeeId')).trim().length > 0;
   }
 
   function getExportStaffOptions() {
@@ -759,7 +762,8 @@
       seen[id] = {
         id: id,
         name: getStaffName(shift),
-        shiftCount: 0
+        shiftCount: 0,
+        eligible: hasEmployeeId(shift)
       };
       options.push(seen[id]);
     });
@@ -786,12 +790,12 @@
     }
 
     list.innerHTML = getExportStaffOptions().map(function(option) {
-      return '<div class="timesheet-export-staff-option">' +
+      return '<div class="timesheet-export-staff-option' + (option.eligible ? '' : ' export-ineligible') + '">' +
         '<label>' +
-          '<input type="checkbox" name="timesheet-export-staff" value="' + escapeHtml(option.id) + '" checked>' +
+          '<input type="checkbox" name="timesheet-export-staff" value="' + escapeHtml(option.id) + '" ' + (option.eligible ? 'checked' : 'disabled') + '>' +
           '<span>' + escapeHtml(option.name) + '</span>' +
         '</label>' +
-        '<span class="timesheet-export-staff-count">' + option.shiftCount + (option.shiftCount === 1 ? ' shift' : ' shifts') + '</span>' +
+        '<span class="timesheet-export-staff-count">' + (option.eligible ? option.shiftCount + (option.shiftCount === 1 ? ' shift' : ' shifts') : 'Missing employee ID') + '</span>' +
       '</div>';
     }).join('');
 
@@ -1042,7 +1046,7 @@
 
     (async function() {
       try {
-        var staff = await window.ClockDB.getAllStaff();
+        var staff = await window.ClockDB.getAllStaff(true);
         var allOption = staffFilter.querySelector('option[value=""]');
         staffFilter.innerHTML = '';
         if (allOption) staffFilter.appendChild(allOption);
@@ -1203,7 +1207,7 @@
     }
     if (toggleAllBtn) {
       toggleAllBtn.addEventListener('click', function() {
-        var boxes = Array.from(document.querySelectorAll('input[name="timesheet-export-staff"]'));
+        var boxes = Array.from(document.querySelectorAll('input[name="timesheet-export-staff"]:not(:disabled)'));
         var shouldCheck = boxes.some(function(box) { return !box.checked; });
         boxes.forEach(function(box) { box.checked = shouldCheck; });
         toggleAllBtn.textContent = shouldCheck ? 'Clear all' : 'Select all';

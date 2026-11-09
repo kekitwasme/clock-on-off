@@ -17,6 +17,7 @@
   var currentShift = null;
   var serverTime = null;
   var durationTimer = null;
+  var clockActionPending = false;
 
   // ===== Roster State =====
   var upcomingRoster = null;
@@ -198,6 +199,7 @@
    * Clock OFF: rounds DOWN to nearest 5 min.
    */
   async function doClockAction() {
+    if (clockActionPending) return;
     var actionBtn = document.getElementById('clock-action-btn');
     if (!window.ClockAuth || !window.ClockAuth.getSession()) {
       showToast('Not authenticated. Please log in again.', 'error');
@@ -205,7 +207,23 @@
     }
 
     try {
+      clockActionPending = true;
       if (actionBtn) actionBtn.disabled = true;
+
+      var session = window.ClockAuth.getSession();
+      var intendedShiftId = currentShift && currentShift.id;
+      if (!await window.ClockAuth.validateSession()) {
+        showToast('Your session has expired. Please log in again, then clock on or off.', 'error');
+        return;
+      }
+      var latestShift = await window.ClockDB.getActiveShift(session.id);
+      if (window.ClockAuth.getSession() !== session) return;
+      currentShift = latestShift;
+      updateStatusDisplay();
+      if ((latestShift && latestShift.id) !== intendedShiftId) {
+        showToast('Your shift status has changed. Check the updated status and try again.', 'info');
+        return;
+      }
 
       // Get server time
       var now;
@@ -236,9 +254,11 @@
 
       var adjusted = Math.abs(rounded.getTime() - now.getTime()) > 60 * 1000;
       var isoTime = rounded.toISOString();
+      if (window.ClockAuth.getSession() !== session) return;
 
       if (isClockOn) {
         var newShift = await window.ClockDB.clockOn(isoTime, adjusted, null, true);
+        if (window.ClockAuth.getSession() !== session) return;
         currentShift = newShift;
         updateStatusDisplay();
 
@@ -279,6 +299,7 @@
           throw new Error('No active shift to clock off from.');
         }
         var updatedShift = await window.ClockDB.clockOff(currentShift.id, isoTime, adjusted);
+        if (window.ClockAuth.getSession() !== session) return;
         var durationMs = window.ClockDB.calculateDuration(currentShift.clock_in, isoTime);
         var durationStr = window.ClockDB.formatDuration(durationMs);
 
@@ -323,6 +344,9 @@
     } catch (error) {
       console.error('Clock action failed:', error);
       showToast(error.message || 'Failed to record time. Please try again.', 'error');
+      if (actionBtn) actionBtn.disabled = false;
+    } finally {
+      clockActionPending = false;
       if (actionBtn) actionBtn.disabled = false;
     }
   }
@@ -739,11 +763,14 @@
       var session = window.ClockAuth.getSession();
       if (!session) return;
 
-      currentShift = await window.ClockDB.getActiveShift(session.id);
+      var activeShift = await window.ClockDB.getActiveShift(session.id);
+      if (window.ClockAuth.getSession() !== session) return;
+      currentShift = activeShift;
 
       // Load upcoming roster
       try {
         var roster = await window.ClockDB.getMyRoster(14);
+        if (window.ClockAuth.getSession() !== session) return;
         var todayStr = new Date().toISOString().slice(0, 10);
         var upcoming = roster && roster.filter(function(r) { return r.roster_date >= todayStr; });
         upcomingRoster = (upcoming && upcoming.length > 0) ? upcoming[0] : null;

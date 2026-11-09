@@ -190,6 +190,7 @@
       '<div class="staff-actions">' +
         '<button class="btn-edit" data-action="edit" data-staff-id="' + staff.id + '">\u270F\uFE0F</button>' +
         (staff.active ? '<button class="btn-delete" data-action="deactivate" data-staff-id="' + staff.id + '">\uD83D\uDEAB</button>' : '') +
+        (window.ClockAuth.getSession().id !== staff.id ? '<button class="btn-delete" data-action="delete" data-staff-id="' + staff.id + '" title="Delete employee" aria-label="Delete employee">&#128465;</button>' : '') +
         (staff.locked_until ? '<button class="btn-unlock" data-action="unlock" data-staff-id="' + staff.id + '">\uD83D\uDD13</button>' : '') +
       '</div>';
 
@@ -202,6 +203,7 @@
 
         if (action === 'edit') openStaffModal(staffRecord);
         else if (action === 'deactivate') confirmDeactivate(staffRecord);
+        else if (action === 'delete') deleteStaffMember(staffRecord);
         else if (action === 'unlock') confirmUnlock(staffRecord);
       });
     });
@@ -251,6 +253,18 @@
     var msg = 'Deactivate ' + escapeHtml(staff.name) + '?\n\nTheir shift history will be preserved, but they will no longer be able to log in.';
     if (window.confirm(msg)) {
       deactivateStaffMember(staff.id);
+    }
+  }
+
+  async function deleteStaffMember(staff) {
+    if (!staff || !window.confirm('Delete ' + staff.name + '?\n\nThey will be removed from staff lists and cannot log in. Past timesheets and audit history will be kept.')) return;
+    try {
+      await window.ClockDB.deleteStaff(staff.id);
+      showToast('Employee deleted. Timesheet history preserved.', 'success');
+      await loadAdminStaff();
+      window.ClockAuth.loadStaffSelector();
+    } catch (error) {
+      showToast(error.message || 'Failed to delete employee.', 'error');
     }
   }
 

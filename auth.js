@@ -38,6 +38,7 @@
     }
 
     function clearPin() {
+      if (pinState.isSubmitting) return;
       pinState.pin = '';
       pinState.isSubmitting = false;
       updateDisplay();
@@ -138,6 +139,7 @@
   // ===== PIN Submission =====
 
   async function submitPin(pin) {
+    if (pinState.isSubmitting) return;
     if (!window.ClockDB) {
       showPinError('System not ready. Please refresh.');
       return;
@@ -154,6 +156,8 @@
 
     var pinError = document.getElementById('pin-error');
     var pinDisplay = document.getElementById('pin-display');
+    var pinEnter = document.getElementById('pin-enter');
+    pinState.isSubmitting = true;
 
     try {
       // Show loading state
@@ -173,6 +177,7 @@
 
       // Verify selected staff matches authenticated staff
       if (staff.id !== selectedStaffId) {
+        await window.ClockDB.logoutStaff();
         // Wrong person — PIN belongs to a different staff member
         pinState.pin = '';
         pinState.isSubmitting = false;
@@ -188,6 +193,8 @@
       }
 
       if (!staff.active) {
+        await window.ClockDB.logoutStaff();
+        pinState.isSubmitting = false;
         pinError.textContent = 'Account deactivated. Contact your manager.';
         pinError.className = 'text-red-600 text-center text-sm mt-2';
         return;
@@ -316,7 +323,7 @@
       var loginTime = new Date(session.loginTime || 0);
       var now = new Date();
       var hoursSinceLogin = (now - loginTime) / (1000 * 60 * 60);
-      if (hoursSinceLogin > SESSION_MAX_AGE_HOURS) {
+      if (!Number.isFinite(hoursSinceLogin) || hoursSinceLogin < 0 || hoursSinceLogin >= SESSION_MAX_AGE_HOURS) {
         await logout();
         return false;
       }
@@ -347,8 +354,9 @@
             loginTime: session.loginTime
           };
         } catch (err) {
-          console.warn('Session token invalid or expired:', err.message);
-          await logout();
+          console.warn('Unable to restore session:', err.message);
+          currentSession = null;
+          window.ClockDB.init(null);
           return false;
         }
       } else {
@@ -394,33 +402,42 @@
     return !!(currentSession && (currentSession.role === 'admin' || currentSession.role === 'observer'));
   }
 
-  async function validateSession() {
-    if (!currentSession || !currentSession.token) return false;
-    if (!window.ClockDB) return false;
+  var validationPromise = null;
+
+  function validateSession() {
+    if (!validationPromise) {
+      validationPromise = checkSession().finally(function() { validationPromise = null; });
+    }
+    return validationPromise;
+  }
+
+  async function checkSession() {
+    var session = currentSession;
+    if (!session || !session.token || !window.ClockDB) return false;
+    var age = Date.now() - new Date(session.loginTime).getTime();
+    if (!Number.isFinite(age) || age < 0 || age >= SESSION_MAX_AGE_HOURS * 3600000) {
+      await logout();
+      return false;
+    }
     try {
-      window.ClockDB.init(currentSession.token);
+      window.ClockDB.init(session.token);
       var staff = await window.ClockDB.getCurrentStaff();
-      if (!staff || !staff.active) {
+      if (currentSession !== session) return false;
+      if (!staff || !staff.active || staff.id !== session.id) {
         await logout();
         return false;
       }
       return true;
     } catch (err) {
       console.warn('Session validation failed:', err.message);
-      await logout();
-      return false;
+      // A connection failure is not proof that the session expired.
+      throw new Error('Unable to check your session. Check your connection and try again.');
     }
   }
 
   async function logout() {
-    // Destroy server-side session
-    if (window.ClockDB) {
-      try {
-        await window.ClockDB.logoutStaff();
-      } catch (err) {
-        console.warn('Server logout failed:', err.message);
-      }
-    }
+    // Clear the UI immediately, even if the logout request stalls offline.
+    var serverLogout = window.ClockDB ? window.ClockDB.logoutStaff() : Promise.resolve();
 
     currentSession = null;
     localStorage.removeItem(SESSION_KEY);
@@ -448,6 +465,8 @@
     }, 50);
 
     window.dispatchEvent(new CustomEvent('session:logout'));
+    try { await serverLogout; }
+    catch (err) { console.warn('Server logout failed:', err.message); }
   }
 
   // ===== Activate Roster Tab =====
@@ -514,7 +533,18 @@
     // Validate session when tab regains visibility
     document.addEventListener('visibilitychange', function() {
       if (document.visibilityState === 'visible' && currentSession) {
-        validateSession();
+        validateSession().catch(function(err) { console.warn(err.message); });
+      }
+    });
+
+    // Another tab may replace or remove the shared login. Never retain its old identity.
+    window.addEventListener('storage', function(event) {
+      if ((event.key === SESSION_KEY || event.key === null) && currentSession) {
+        currentSession = null;
+        window.ClockDB.init(null);
+        showScreen('pin');
+        window.dispatchEvent(new CustomEvent('session:logout'));
+        loadStaffSelector();
       }
     });
   }

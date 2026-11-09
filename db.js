@@ -90,12 +90,13 @@
     'invalid token',
     'jwt expired',
     'JWT expired',
-    'auth',
+    'authentication required',
     'unauthorized',
     'not authenticated'
   ];
 
   function isAuthError(error) {
+    if (error && (error.code === '28000' || error.code === '28P01' || error.code === 'PGRST301')) return true;
     if (!error || !error.message) return false;
     var msg = String(error.message).toLowerCase();
     return AUTH_ERROR_MESSAGES.some(function(keyword) {
@@ -184,17 +185,16 @@
    */
   async function logoutStaff() {
     var token = currentSessionToken;
+    var client = getClient();
+    init(null);
     if (token) {
       try {
-        var client = getClient();
         await client.rpc('logout_staff', { p_token: token });
       } catch (err) {
         // Best-effort: even if the RPC fails we still clear local state
         console.warn('logout_staff RPC failed (session may already be expired):', err.message);
       }
     }
-    currentSessionToken = null;
-    init(null);
   }
 
   /**
@@ -209,7 +209,6 @@
 
     if (error) {
       if (isAuthError(error)) {
-        dispatchSessionExpired();
         return null;
       }
       throw new Error('Failed to resolve session: ' + error.message);
@@ -258,12 +257,13 @@
    * Get all staff (admin only — enforced by RLS + server checks).
    * @returns {Promise<Array>}
    */
-  async function getAllStaff() {
+  async function getAllStaff(includeDeleted) {
     var client = getClient();
-    var result = await client
+    var query = client
       .from('staff')
-      .select('id, name, role, active, employee_id, department_id, expected_start_time, expected_end_time, failed_attempts, locked_until, created_at')
-      .order('name', { ascending: true });
+      .select('id, name, role, active, employee_id, department_id, expected_start_time, expected_end_time, failed_attempts, locked_until, created_at');
+    if (!includeDeleted) query = query.is('deleted_at', null);
+    var result = await query.order('name', { ascending: true });
 
     if (result.error) {
       throw new Error('Failed to get staff list: ' + result.error.message);
@@ -350,6 +350,12 @@
 
   // ===== Shift Functions =====
 
+  async function deleteStaff(staffId) {
+    var result = await getClient().rpc('delete_staff_member', { p_staff_id: staffId });
+    if (result.error) throw new Error(result.error.message);
+    return result.data;
+  }
+
   /**
    * Get the active (open) shift for a staff member.
    * @param {string} staffId
@@ -381,6 +387,7 @@
    * @returns {Promise<object>}
    */
   async function clockOn(clockInTime, adjusted, notes, skipTimeCheck) {
+    var requestToken = currentSessionToken;
     adjusted = adjusted !== undefined ? adjusted : false;
     notes = notes || null;
     skipTimeCheck = skipTimeCheck || false;
@@ -395,6 +402,10 @@
 
     if (result.error) {
       var msg = result.error.message || 'Failed to clock on.';
+      if (isAuthError(result.error)) {
+        if (currentSessionToken === requestToken) dispatchSessionExpired();
+        throw new Error('Your session has expired. Please log in again before clocking on.');
+      }
       if (msg.indexOf('within') !== -1) {
         throw new Error('Time must be within ±10 minutes of current server time.');
       }
@@ -416,6 +427,7 @@
    * @returns {Promise<object>}
    */
   async function clockOff(shiftId, clockOutTime, adjusted) {
+    var requestToken = currentSessionToken;
     adjusted = adjusted !== undefined ? adjusted : false;
 
     var client = getClient();
@@ -427,6 +439,10 @@
 
     if (result.error) {
       var msg = result.error.message || 'Failed to clock off.';
+      if (isAuthError(result.error)) {
+        if (currentSessionToken === requestToken) dispatchSessionExpired();
+        throw new Error('Your session has expired. Please log in again before clocking off.');
+      }
       if (msg.indexOf('within') !== -1) {
         throw new Error('Time must be within ±10 minutes of current server time.');
       }
@@ -849,6 +865,7 @@
     createStaff: createStaff,
     updateStaff: updateStaff,
     deactivateStaff: deactivateStaff,
+    deleteStaff: deleteStaff,
     unlockStaff: unlockStaff,
     getActiveShift: getActiveShift,
     clockOn: clockOn,

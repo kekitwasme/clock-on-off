@@ -209,7 +209,21 @@ test('lists staff choices for the global export picker', () => {
   );
 
   assert.deepEqual(JSON.parse(JSON.stringify(api.getExportStaffOptions())), [
-    { id: 'staff-1', name: 'Bidha', shiftCount: 2 },
-    { id: 'staff-2', name: 'Alex', shiftCount: 1 }
+    { id: 'staff-1', name: 'Bidha', shiftCount: 2, eligible: true },
+    { id: 'staff-2', name: 'Alex', shiftCount: 1, eligible: true }
   ]);
+});
+
+test('missing and blank employee IDs are excluded from every CSV path', () => {
+  const api = loadTimesheetModule();
+  const shifts = [null, '', '   ', '547'].map((employee_id, index) => ({
+    staff_id: 'staff-' + index,
+    staff: { name: 'Staff ' + index, employee_id },
+    clock_in: '2022-01-12T09:00:00+08:00',
+    clock_out: '2022-01-12T17:00:00+08:00'
+  }));
+  api.getData().push(...shifts);
+  assert.equal(api.buildExportCSV().split('\r\n').length, 2);
+  assert.equal(api.buildExportCSV(shifts.slice(0, 3)).split('\r\n').length, 1);
+  assert.deepEqual(Array.from(api.getExportStaffOptions(), option => option.eligible), [false, false, false, true]);
 });

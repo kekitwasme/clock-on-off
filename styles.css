@@ -1682,3 +1682,8 @@ textarea:disabled {
 .sched-day-card:has(.sched-past):not(:has(.sched-upcoming)) {
     opacity: 0.65;
 }
+ .export-ineligible,
+ .staff-card-export-btn:disabled {
+   opacity: 0.45;
+   cursor: not-allowed;
+ }
